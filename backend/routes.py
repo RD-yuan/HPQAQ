@@ -187,7 +187,7 @@ def get_price_trend(
         
         # 查询每月平均价格
         trend_data = db.query(
-            func.date_format(func.date(House.crawl_time), "%Y-%m").label("month"),
+            func.strftime("%Y-%m", House.crawl_time).label("month"),
             func.avg(House.total_price).label("avg_total_price"),
             func.avg(House.unit_price).label("avg_unit_price"),
             func.count(House.id).label("total_count")
@@ -197,7 +197,7 @@ def get_price_trend(
                 House.crawl_time >= start_date,
                 House.crawl_time <= end_date
             )
-        ).group_by(func.date_format(func.date(House.crawl_time), "%Y-%m")).order_by("month").all()
+        ).group_by(func.strftime("%Y-%m", House.crawl_time)).order_by("month").all()
         
         # 格式化返回数据
         result = []

@@ -136,15 +136,17 @@ function onFilterChange() {
 .filter-card {
   padding: 14px 14px 10px;
   border-radius: 14px;
-  background: radial-gradient(circle at top, #020617, #020617);
-  border: 1px solid rgba(148, 163, 184, 0.6);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   font-size: 13px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .title {
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 10px;
+  color: #000000;
 }
 
 .field {
@@ -157,14 +159,16 @@ function onFilterChange() {
 .field-row {
   display: flex;
   gap: 8px;
+  width: 100%;
 }
 
 .field-half {
   flex: 1;
+  width: calc(50% - 4px); /* 减去gap的一半，确保两个元素加上gap正好是100% */
 }
 
 label {
-  color: #9ca3af;
+  color: rgba(0, 0, 0, 0.7);
   font-size: 12px;
 }
 
@@ -172,22 +176,25 @@ input,
 select {
   padding: 6px 8px;
   border-radius: 8px;
-  border: 1px solid #1f2937;
-  background: #020617;
-  color: #e5e7eb;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  background: #ffffff;
+  color: #000000;
   font-size: 13px;
   outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 input:focus,
 select:focus {
-  border-color: #38bdf8;
+  border-color: rgba(255, 255, 255, 0.6);
 }
 
 .hint {
   margin-top: 4px;
   font-size: 11px;
-  color: #64748b;
+  color: rgba(0, 0, 0, 0.5);
   line-height: 1.4;
 }
 </style>

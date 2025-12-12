@@ -4,12 +4,15 @@ import { fetchHouses, fetchPriceTrend } from './api'
 import HouseFilter from './components/HouseFilter.vue'
 import HouseTable from './components/HouseTable.vue'
 import PriceChart from './components/PriceChart.vue'
+import StatisticsPanel from './components/StatisticsPanel.vue'
 
 const selectedCity = ref('北京') // 默认选择北京
 const houses = ref([])
 const priceTrend = ref([])
 const loading = ref(false)
 const totalCount = ref(0)
+const activeTab = ref('statistics')
+const timeRange = ref(12) // 默认显示12个月的数据
 
 const filters = ref({
   district: '',
@@ -71,7 +74,7 @@ async function loadHouses() {
 async function loadPriceTrend() {
   if (!selectedCity.value) return
   try {
-    const response = await fetchPriceTrend(selectedCity.value, 12) // 获取最近12个月的数据
+    const response = await fetchPriceTrend(selectedCity.value, timeRange.value) // 获取指定时间范围的数据
     if (response.code === 200) {
       priceTrend.value = response.data
     } else {
@@ -107,9 +110,18 @@ onMounted(() => {
       <div class="navbar-left">
         <div class="logo">HPQAQ · 房价大盘</div>
         <nav class="nav-links">
-          <span class="nav-link active">房价大盘</span>
-          <span class="nav-link">成交记录</span>
-          <span class="nav-link">城市排行</span>
+          <span 
+            :class="['nav-link', { active: activeTab === 'statistics' }]"
+            @click="activeTab = 'statistics'"
+          >
+            统计面板
+          </span>
+          <span 
+            :class="['nav-link', { active: activeTab === 'data' }]"
+            @click="activeTab = 'data'"
+          >
+            房源数据
+          </span>
         </nav>
       </div>
       <div class="navbar-right">
@@ -134,27 +146,46 @@ onMounted(() => {
       </aside>
 
       <section class="content">
-        <section class="panel panel-chart">
-          <div class="panel-header">
-            <h2>
-              {{ selectedCityName }} · 近12个月价格走势
-            </h2>
-            <span v-if="loading" class="tag">加载中...</span>
+        <!-- 统计面板 -->
+        <div v-if="activeTab === 'statistics'" class="statistics-layout">
+          <div class="panel panel-stats">
+            <StatisticsPanel />
           </div>
-          <PriceChart :data="priceTrend" />
-        </section>
 
-        <section class="panel panel-table">
-          <div class="panel-header">
-            <h2>
-              {{ selectedCityName }} · 房源列表
-            </h2>
-            <span class="panel-subtitle">
-              共 {{ totalCount }} 条记录
-            </span>
+          <div class="panel panel-chart">
+            <div class="panel-header">
+              <h2>
+                {{ selectedCityName }} · 价格走势
+              </h2>
+              <div class="time-range-selector">
+                <button 
+                  v-for="range in [3, 6, 12, 36]" 
+                  :key="range"
+                  :class="['time-btn', { active: timeRange === range }]"
+                  @click="timeRange = range; loadPriceTrend()"
+                >
+                  {{ range === 3 ? '3个月' : range === 6 ? '6个月' : range === 12 ? '1年' : '3年' }}
+                </button>
+              </div>
+            </div>
+            <PriceChart :data="priceTrend" />
           </div>
-          <HouseTable :houses="houses" />
-        </section>
+        </div>
+
+        <!-- 房源数据面板 -->
+        <div v-if="activeTab === 'data'" class="data-layout">
+          <div class="panel panel-table">
+            <div class="panel-header">
+              <h2>
+                {{ selectedCityName }} · 房源列表
+              </h2>
+              <span class="panel-subtitle">
+                共 {{ totalCount }} 条记录
+              </span>
+            </div>
+            <HouseTable :houses="houses" />
+          </div>
+        </div>
       </section>
     </main>
   </div>
@@ -163,19 +194,20 @@ onMounted(() => {
 <style scoped>
 .layout {
   min-height: 100vh;
-  background: #0f172a;
-  color: #e5e7eb;
+  background: #f5f5f5;
+  color: #333333;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .navbar {
   height: 56px;
   padding: 0 24px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.3);
+  border-bottom: 1px solid rgba(0, 174, 102, 0.3);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: radial-gradient(circle at top left, #1e293b, #020617);
+  background: #00ae66;
+  backdrop-filter: blur(10px);
 }
 
 .navbar-left {
@@ -218,6 +250,7 @@ onMounted(() => {
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 16px;
   padding: 16px 24px 24px;
+  background: #f5f5f5;
 }
 
 .sidebar {
@@ -229,19 +262,21 @@ onMounted(() => {
 .city-card {
   padding: 12px 14px;
   border-radius: 12px;
-  background: linear-gradient(145deg, #0b1120, #020617);
-  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   font-size: 13px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .city-card h3 {
   margin-bottom: 8px;
   font-size: 15px;
+  color: #000000;
 }
 
 .city-tip {
   margin-top: 8px;
-  color: #64748b;
+  color: rgba(0, 0, 0, 0.6);
 }
 
 .content {
@@ -250,19 +285,70 @@ onMounted(() => {
   gap: 16px;
 }
 
+.statistics-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.data-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
 .panel {
   border-radius: 14px;
-  background: #020617;
-  border: 1px solid rgba(30, 64, 175, 0.6);
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
   padding: 14px 16px 12px;
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.9);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.panel-chart {
+  width: 100%;
+}
+
+.panel-stats {
+  width: 100%;
+  height: fit-content;
+}
+
+.panel-table {
+  width: 100%;
 }
 
 .panel-header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
+}
+
+.time-range-selector {
+  display: flex;
+  gap: 8px;
+}
+
+.time-btn {
+  padding: 6px 12px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  background: #f5f5f5;
+  color: #333;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.time-btn:hover {
+  background: #e0e0e0;
+}
+
+.time-btn.active {
+  background: #00ae66;
+  color: white;
+  border-color: #00ae66;
 }
 
 .panel-header h2 {
@@ -272,14 +358,30 @@ onMounted(() => {
 
 .panel-subtitle {
   font-size: 12px;
-  color: #64748b;
+  color: #666666;
 }
 
 .tag {
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.2);
+  background: rgba(0, 174, 102, 0.1);
+  color: #00ae66;
+}
+
+.nav-link {
+  padding: 4px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-link:hover {
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.nav-link.active {
+  background: rgba(56, 189, 248, 0.1);
   color: #e5e7eb;
 }
 
@@ -295,6 +397,15 @@ onMounted(() => {
 @media (max-width: 900px) {
   .main {
     grid-template-columns: 1fr;
+  }
+  
+  .statistics-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .panel-stats {
+    grid-column: 1;
   }
 }
 </style>
