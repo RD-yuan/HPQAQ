@@ -1,6 +1,6 @@
 // frontend/src/api/index.js
 
-const BASE_URL = 'http://127.0.0.1:5000/api'
+const BASE_URL = 'http://127.0.0.1:8000/api/v1'
 
 async function request(path, params = {}) {
     const url = new URL(BASE_URL + path)
@@ -18,14 +18,22 @@ async function request(path, params = {}) {
     return resp.json()
 }
 
-export function fetchCities(region) {
-    return request('/cities', region ? { region } : {})
-}
-
 export function fetchHouses(params) {
     return request('/houses', params)
 }
 
-export function fetchPriceTrend(cityId) {
-    return request('/price_trend', { city_id: cityId })
+export function fetchHouseDetail(houseId) {
+    return request(`/houses/${houseId}`)
+}
+
+export function fetchCityStatistics() {
+    return request('/statistics/cities')
+}
+
+export function fetchPriceTrend(city, months = 3) {
+    return request('/statistics/price-trend', { city, months })
+}
+
+export function fetchDistrictStatistics(city) {
+    return request('/statistics/districts', { city })
 }

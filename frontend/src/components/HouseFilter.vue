@@ -2,11 +2,10 @@
 import { reactive, watch } from 'vue'
 
 const props = defineProps({
-  cities: { type: Array, default: () => [] },
-  selectedCityId: { type: Number, default: null },
+  selectedCity: { type: String, default: null },
   filters: {
     type: Object,
-    default: () => ({ district: '', house_type: '' })
+    default: () => ({ district: '', house_type: '', min_price: '', max_price: '', min_area: '', max_area: '' })
   }
 })
 
@@ -14,8 +13,20 @@ const emit = defineEmits(['update:city', 'update:filters'])
 
 const localFilters = reactive({
   district: '',
-  house_type: ''
+  house_type: '',
+  min_price: '',
+  max_price: '',
+  min_area: '',
+  max_area: ''
 })
+
+// 支持的城市列表
+const cities = [
+  { name: '北京' },
+  { name: '上海' },
+  { name: '杭州' },
+  { name: '深圳' }
+]
 
 watch(
   () => props.filters,
@@ -23,13 +34,17 @@ watch(
     if (!val) return
     localFilters.district = val.district || ''
     localFilters.house_type = val.house_type || ''
+    localFilters.min_price = val.min_price || ''
+    localFilters.max_price = val.max_price || ''
+    localFilters.min_area = val.min_area || ''
+    localFilters.max_area = val.max_area || ''
   },
   { immediate: true, deep: true }
 )
 
 function onCityChange(e) {
-  const id = Number(e.target.value)
-  emit('update:city', id)
+  const city = e.target.value
+  emit('update:city', city)
 }
 
 function onFilterChange() {
@@ -43,10 +58,10 @@ function onFilterChange() {
 
     <div class="field">
       <label>城市</label>
-      <select :value="selectedCityId ?? ''" @change="onCityChange">
+      <select :value="selectedCity ?? ''" @change="onCityChange">
         <option value="" disabled>请选择城市</option>
-        <option v-for="c in cities" :key="c.id" :value="c.id">
-          {{ c.name }}（{{ c.region === 'cn' ? '大陆' : '台湾' }}）
+        <option v-for="c in cities" :key="c.name" :value="c.name">
+          {{ c.name }}
         </option>
       </select>
     </div>
@@ -69,8 +84,50 @@ function onFilterChange() {
       />
     </div>
 
+    <div class="field-row">
+      <div class="field field-half">
+        <label>最低总价(万元)</label>
+        <input
+          v-model="localFilters.min_price"
+          @input="onFilterChange"
+          type="number"
+          placeholder="0"
+        />
+      </div>
+      <div class="field field-half">
+        <label>最高总价(万元)</label>
+        <input
+          v-model="localFilters.max_price"
+          @input="onFilterChange"
+          type="number"
+          placeholder="不限"
+        />
+      </div>
+    </div>
+
+    <div class="field-row">
+      <div class="field field-half">
+        <label>最小面积(㎡)</label>
+        <input
+          v-model="localFilters.min_area"
+          @input="onFilterChange"
+          type="number"
+          placeholder="0"
+        />
+      </div>
+      <div class="field field-half">
+        <label>最大面积(㎡)</label>
+        <input
+          v-model="localFilters.max_area"
+          @input="onFilterChange"
+          type="number"
+          placeholder="不限"
+        />
+      </div>
+    </div>
+
     <p class="hint">
-      提示：区域、房型支持模糊匹配，将在后端 SQL 中使用 LIKE 检索。
+      提示：区域、房型支持模糊匹配，价格和面积支持范围筛选。
     </p>
   </section>
 </template>
@@ -95,6 +152,15 @@ function onFilterChange() {
   flex-direction: column;
   gap: 4px;
   margin-bottom: 10px;
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.field-half {
+  flex: 1;
 }
 
 label {

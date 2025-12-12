@@ -9,27 +9,33 @@ const props = defineProps({
     <table class="table">
       <thead>
         <tr>
+          <th>标题</th>
           <th>城市</th>
           <th>区域</th>
+          <th>小区</th>
           <th>房型</th>
-          <th>面积(m²)</th>
-          <th>单价(元/m²)</th>
+          <th>面积(㎡)</th>
+          <th>单价(元/㎡)</th>
           <th>总价(万元)</th>
           <th>楼层</th>
+          <th>朝向</th>
         </tr>
       </thead>
       <tbody>
         <tr v-if="!houses.length">
-          <td colspan="7" class="empty">暂无数据</td>
+          <td colspan="10" class="empty">暂无数据</td>
         </tr>
         <tr v-for="h in houses" :key="h.id">
+          <td class="house-title">{{ h.title }}</td>
           <td>{{ h.city }}</td>
           <td>{{ h.district }}</td>
+          <td>{{ h.community }}</td>
           <td>{{ h.house_type }}</td>
           <td>{{ h.area }}</td>
-          <td>{{ h.unit_price }}</td>
+          <td>{{ h.unit_price.toLocaleString() }}</td>
           <td>{{ h.total_price }}</td>
           <td>{{ h.floor }}</td>
+          <td>{{ h.orientation }}</td>
         </tr>
       </tbody>
     </table>

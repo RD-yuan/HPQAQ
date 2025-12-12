@@ -1,34 +1,31 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { fetchCities, fetchHouses, fetchPriceTrend } from './api'
+import { fetchHouses, fetchPriceTrend } from './api'
 import HouseFilter from './components/HouseFilter.vue'
 import HouseTable from './components/HouseTable.vue'
 import PriceChart from './components/PriceChart.vue'
 
-const cities = ref([])
-const selectedCityId = ref(null)
+const selectedCity = ref('北京') // 默认选择北京
 const houses = ref([])
 const priceTrend = ref([])
 const loading = ref(false)
+const totalCount = ref(0)
 
 const filters = ref({
   district: '',
-  house_type: ''
+  house_type: '',
+  min_price: '',
+  max_price: '',
+  min_area: '',
+  max_area: ''
 })
 
-const selectedCity = computed(() =>
-  cities.value.find((c) => c.id === selectedCityId.value)
-)
+const selectedCityName = computed(() => selectedCity.value)
 
 async function initData() {
   loading.value = true
   try {
-    const cityList = await fetchCities()
-    cities.value = cityList
-    if (cityList.length) {
-      selectedCityId.value = cityList[0].id
-      await Promise.all([loadHouses(), loadPriceTrend()])
-    }
+    await Promise.all([loadHouses(), loadPriceTrend()])
   } catch (e) {
     console.error(e)
   } finally {
@@ -37,34 +34,58 @@ async function initData() {
 }
 
 async function loadHouses() {
-  if (!selectedCityId.value) return
+  if (!selectedCity.value) return
   loading.value = true
   try {
-    const data = await fetchHouses({
-      city_id: selectedCityId.value,
+    // 构建查询参数
+    const params = {
+      city: selectedCity.value,
       district: filters.value.district,
-      house_type: filters.value.house_type
-    })
-    houses.value = data
+      house_type: filters.value.house_type,
+      min_price: filters.value.min_price,
+      max_price: filters.value.max_price,
+      min_area: filters.value.min_area,
+      max_area: filters.value.max_area,
+      page: 1,
+      page_size: 50 // 每页显示50条数据
+    }
+    
+    const response = await fetchHouses(params)
+    if (response.code === 200) {
+      houses.value = response.data.houses
+      totalCount.value = response.data.total_count
+    } else {
+      console.error('获取房源数据失败:', response.message)
+      houses.value = []
+      totalCount.value = 0
+    }
   } catch (e) {
-    console.error(e)
+    console.error('获取房源数据时发生错误:', e)
+    houses.value = []
+    totalCount.value = 0
   } finally {
     loading.value = false
   }
 }
 
 async function loadPriceTrend() {
-  if (!selectedCityId.value) return
+  if (!selectedCity.value) return
   try {
-    const data = await fetchPriceTrend(selectedCityId.value)
-    priceTrend.value = data
+    const response = await fetchPriceTrend(selectedCity.value, 12) // 获取最近12个月的数据
+    if (response.code === 200) {
+      priceTrend.value = response.data
+    } else {
+      console.error('获取价格走势数据失败:', response.message)
+      priceTrend.value = []
+    }
   } catch (e) {
-    console.error(e)
+    console.error('获取价格走势数据时发生错误:', e)
+    priceTrend.value = []
   }
 }
 
-function handleCityChange(cityId) {
-  selectedCityId.value = cityId
+function handleCityChange(city) {
+  selectedCity.value = city
   loadHouses()
   loadPriceTrend()
 }
@@ -92,25 +113,23 @@ onMounted(() => {
         </nav>
       </div>
       <div class="navbar-right">
-        <span class="nav-subtitle">中国一线 & 台湾城市房价趋势分析</span>
+        <span class="nav-subtitle">中国一线城市房价趋势分析</span>
       </div>
     </header>
 
     <main class="main">
       <aside class="sidebar">
         <HouseFilter
-          :cities="cities"
-          :selectedCityId="selectedCityId"
+          :selectedCity="selectedCity"
           :filters="filters"
           @update:city="handleCityChange"
           @update:filters="handleFilterChange"
         />
 
         <section v-if="selectedCity" class="city-card">
-          <h3>{{ selectedCity.name }}</h3>
-          <p>区域：{{ selectedCity.region === 'cn' ? '中国大陆' : '台湾地区' }}</p>
-          <p>等级：{{ selectedCity.level || '—' }}</p>
-          <p class="city-tip">数据源：爬虫定期抓取房价与成交记录</p>
+          <h3>{{ selectedCity }}</h3>
+          <p>城市等级：一线城市</p>
+          <p class="city-tip">数据源：链家网站定期抓取的最新房源数据</p>
         </section>
       </aside>
 
@@ -118,7 +137,7 @@ onMounted(() => {
         <section class="panel panel-chart">
           <div class="panel-header">
             <h2>
-              {{ selectedCity ? selectedCity.name : '城市' }} · 近三年价格走势
+              {{ selectedCityName }} · 近12个月价格走势
             </h2>
             <span v-if="loading" class="tag">加载中...</span>
           </div>
@@ -128,10 +147,10 @@ onMounted(() => {
         <section class="panel panel-table">
           <div class="panel-header">
             <h2>
-              {{ selectedCity ? selectedCity.name : '城市' }} · 房源列表
+              {{ selectedCityName }} · 房源列表
             </h2>
             <span class="panel-subtitle">
-              共 {{ houses.length }} 条记录
+              共 {{ totalCount }} 条记录
             </span>
           </div>
           <HouseTable :houses="houses" />
@@ -196,7 +215,7 @@ onMounted(() => {
 
 .main {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   gap: 16px;
   padding: 16px 24px 24px;
 }
@@ -262,6 +281,14 @@ onMounted(() => {
   border-radius: 999px;
   background: rgba(148, 163, 184, 0.2);
   color: #e5e7eb;
+}
+
+/* 表格样式增强 */
+.house-title {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 简单响应式 */

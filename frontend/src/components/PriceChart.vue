@@ -26,45 +26,134 @@ function resizeChart() {
 function updateChart() {
   if (!chartInstance) return
 
-  const months = props.data.map((d) => `${d.year}-${String(d.month).padStart(2, '0')}`)
-  const prices = props.data.map((d) => d.avg_unit_price)
+  // 处理从新API获取的数据格式
+  const months = props.data.map((d) => d.month)
+  const unitPrices = props.data.map((d) => d.avg_unit_price)
+  const totalPrices = props.data.map((d) => d.avg_total_price)
 
   const option = {
     backgroundColor: 'transparent',
     grid: {
       left: 40,
-      right: 20,
-      top: 30,
-      bottom: 30
+      right: 40,
+      top: 40,
+      bottom: 40
     },
     tooltip: {
-      trigger: 'axis'
+      trigger: 'axis',
+      formatter: function(params) {
+        let result = params[0].name + '<br/>'
+        params.forEach(param => {
+          result += `${param.marker}${param.seriesName}: ${param.value.toLocaleString()}<br/>`
+        })
+        return result
+      }
+    },
+    legend: {
+      data: ['平均单价', '平均总价'],
+      textStyle: {
+        color: '#9ca3af',
+        fontSize: 11
+      },
+      top: 0
     },
     xAxis: {
       type: 'category',
       data: months,
       boundaryGap: false,
       axisLine: { lineStyle: { color: '#4b5563' } },
-      axisLabel: { color: '#9ca3af', fontSize: 11 }
+      axisLabel: {
+        color: '#9ca3af',
+        fontSize: 11,
+        rotate: 45
+      }
     },
-    yAxis: {
-      type: 'value',
-      axisLine: { show: false },
-      splitLine: { lineStyle: { color: '#1f2937' } },
-      axisLabel: { color: '#9ca3af', fontSize: 11 }
-    },
+    yAxis: [
+      {
+        type: 'value',
+        name: '平均单价',
+        nameTextStyle: {
+          color: '#9ca3af',
+          fontSize: 11
+        },
+        axisLine: { show: false },
+        splitLine: { lineStyle: { color: '#1f2937' } },
+        axisLabel: {
+          color: '#9ca3af',
+          fontSize: 11,
+          formatter: '{value}'
+        }
+      },
+      {
+        type: 'value',
+        name: '平均总价(万元)',
+        nameTextStyle: {
+          color: '#9ca3af',
+          fontSize: 11
+        },
+        axisLine: { show: false },
+        splitLine: { show: false },
+        axisLabel: {
+          color: '#9ca3af',
+          fontSize: 11,
+          formatter: '{value}'
+        }
+      }
+    ],
     series: [
       {
+        name: '平均单价',
         type: 'line',
-        data: prices,
+        data: unitPrices,
         smooth: true,
         showSymbol: false,
         lineStyle: {
-          width: 2
+          width: 2,
+          color: '#38bdf8'
         },
         areaStyle: {
-          opacity: 0.25
-        }
+          opacity: 0.25,
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [{
+              offset: 0, color: 'rgba(56, 189, 248, 0.5)'
+            }, {
+              offset: 1, color: 'rgba(56, 189, 248, 0.0)'
+            }]
+          }
+        },
+        yAxisIndex: 0
+      },
+      {
+        name: '平均总价',
+        type: 'line',
+        data: totalPrices,
+        smooth: true,
+        showSymbol: false,
+        lineStyle: {
+          width: 2,
+          color: '#fbbf24'
+        },
+        areaStyle: {
+          opacity: 0.25,
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [{
+              offset: 0, color: 'rgba(251, 191, 36, 0.5)'
+            }, {
+              offset: 1, color: 'rgba(251, 191, 36, 0.0)'
+            }]
+          }
+        },
+        yAxisIndex: 1
       }
     ]
   }
