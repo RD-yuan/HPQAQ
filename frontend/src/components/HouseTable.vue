@@ -44,7 +44,8 @@ const props = defineProps({
 
 <style scoped>
 .table-wrapper {
-  max-height: 360px;
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 

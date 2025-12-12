@@ -108,7 +108,7 @@ onMounted(() => {
     <!-- 顶部导航栏，仿 csqaq -->
     <header class="navbar">
       <div class="navbar-left">
-        <div class="logo">HPQAQ · 房价大盘</div>
+        <div class="logo">房价趋势分析</div>
         <nav class="nav-links">
           <span 
             :class="['nav-link', { active: activeTab === 'statistics' }]"
@@ -129,34 +129,36 @@ onMounted(() => {
       </div>
     </header>
 
-    <main class="main">
-      <aside class="sidebar">
+    <main class="main" :class="{ 'no-sidebar': activeTab === 'statistics' }">
+      <aside class="sidebar" v-if="activeTab !== 'statistics'">
         <HouseFilter
           :selectedCity="selectedCity"
           :filters="filters"
           @update:city="handleCityChange"
           @update:filters="handleFilterChange"
         />
-
-        <section v-if="selectedCity" class="city-card">
-          <h3>{{ selectedCity }}</h3>
-          <p>城市等级：一线城市</p>
-          <p class="city-tip">数据源：链家网站定期抓取的最新房源数据</p>
-        </section>
       </aside>
 
       <section class="content">
         <!-- 统计面板 -->
-        <div v-if="activeTab === 'statistics'" class="statistics-layout">
-          <div class="panel panel-stats">
-            <StatisticsPanel />
-          </div>
-
+        <template v-if="activeTab === 'statistics'">
+          <!-- 价格走势放在上面 -->
           <div class="panel panel-chart">
             <div class="panel-header">
-              <h2>
-                {{ selectedCityName }} · 价格走势
-              </h2>
+              <div class="chart-header-top">
+                <h2>
+                  {{ selectedCityName }} · 价格走势
+                </h2>
+                <div class="city-selector-inline">
+                  <label>选择城市：</label>
+                  <select :value="selectedCity" @change="handleCityChange($event.target.value)">
+                    <option value="" disabled>请选择城市</option>
+                    <option v-for="city in ['北京', '上海', '杭州', '深圳']" :key="city" :value="city">
+                      {{ city }}
+                    </option>
+                  </select>
+                </div>
+              </div>
               <div class="time-range-selector">
                 <button 
                   v-for="range in [3, 6, 12, 36]" 
@@ -170,10 +172,15 @@ onMounted(() => {
             </div>
             <PriceChart :data="priceTrend" />
           </div>
-        </div>
+
+          <!-- 房价排行放在下面 -->
+          <div class="panel panel-stats">
+            <StatisticsPanel />
+          </div>
+        </template>
 
         <!-- 房源数据面板 -->
-        <div v-if="activeTab === 'data'" class="data-layout">
+        <template v-if="activeTab === 'data'">
           <div class="panel panel-table">
             <div class="panel-header">
               <h2>
@@ -185,7 +192,7 @@ onMounted(() => {
             </div>
             <HouseTable :houses="houses" />
           </div>
-        </div>
+        </template>
       </section>
     </main>
   </div>
@@ -193,10 +200,14 @@ onMounted(() => {
 
 <style scoped>
 .layout {
-  min-height: 100vh;
-  background: #f5f5f5;
-  color: #333333;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #333333;
+  background: #f5f5f5;
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .navbar {
@@ -219,25 +230,31 @@ onMounted(() => {
 .logo {
   font-weight: 700;
   font-size: 18px;
-  color: #38bdf8;
+  color: #333333;
 }
 
 .nav-links {
   display: flex;
   gap: 12px;
   font-size: 14px;
-  color: #94a3b8;
+  color: #666666;
 }
 
 .nav-link {
   padding: 4px 8px;
   border-radius: 999px;
-  cursor: default;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.nav-link:hover {
+  background: rgba(0, 0, 0, 0.05);
 }
 
 .nav-link.active {
-  background: rgba(56, 189, 248, 0.1);
-  color: #e5e7eb;
+  background: #333333;
+  color: #ffffff;
+  font-weight: 500;
 }
 
 .navbar-right {
@@ -246,55 +263,41 @@ onMounted(() => {
 }
 
 .main {
-  display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
+  display: flex;
   gap: 16px;
-  padding: 16px 24px 24px;
+  padding: 16px 0 24px;
   background: #f5f5f5;
+  height: calc(100vh - 60px);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.city-card {
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  font-size: 13px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.city-card h3 {
-  margin-bottom: 8px;
-  font-size: 15px;
-  color: #000000;
-}
-
-.city-tip {
-  margin-top: 8px;
-  color: rgba(0, 0, 0, 0.6);
+  width: 320px;
+  margin: 0 24px;
+  flex-shrink: 0;
 }
 
 .content {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: calc(100% - 48px);
+  height: 100%;
+  min-height: 0;
+  box-sizing: border-box;
+  flex: 1;
+  margin: 0 auto;
 }
 
-.statistics-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.data-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+/* 当侧边栏隐藏时（统计面板），让内容区域完全铺满 */
+.main.no-sidebar .content {
+  width: 100%;
+  margin: 0;
 }
 
 .panel {
@@ -303,26 +306,67 @@ onMounted(() => {
   border: 1px solid rgba(0, 0, 0, 0.1);
   padding: 14px 16px 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .panel-chart {
   width: 100%;
+  flex: 1;
+  min-height: 300px;
+  box-sizing: border-box;
 }
 
 .panel-stats {
   width: 100%;
-  height: fit-content;
+  box-sizing: border-box;
 }
 
 .panel-table {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .panel-header {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.chart-header-top {
+  display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  width: 100%;
+}
+
+.city-selector-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.city-selector-inline label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.city-selector-inline select {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #f5f5f5;
+  color: #333;
+  font-size: 13px;
+  outline: none;
+  width: auto;
 }
 
 .time-range-selector {
@@ -397,6 +441,15 @@ onMounted(() => {
 @media (max-width: 900px) {
   .main {
     grid-template-columns: 1fr;
+    padding: 16px 16px 24px;
+  }
+  
+  .sidebar {
+    margin: 0;
+  }
+  
+  .content {
+    margin: 0;
   }
   
   .statistics-layout {

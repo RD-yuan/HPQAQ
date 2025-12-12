@@ -193,7 +193,8 @@ watch(
 <style scoped>
 .chart-container {
   position: relative;
-  height: 260px;
+  height: 100%;
+  min-height: 260px;
 }
 
 .chart {
