@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>上海成交房价看板</title>
+    <link rel="stylesheet" href="/static/app.css" />
+</head>
+
+<body>
+    <!-- 背景层（光团 + 网格） -->
+    <div class="bg" aria-hidden="true">
+        <div class="blob blob1"></div>
+        <div class="blob blob2"></div>
+        <div class="blob blob3"></div>
+        <div class="grid"></div>
+        <div class="noise"></div>
+    </div>
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="logo">SH</div>
+            <div class="brand-text">
+                <div class="title">上海成交房价看板</div>
+                <div class="subtitle">Flask + MiniSQL(SQLite) + 原生 HTML/CSS/JS</div>
+            </div>
+        </div>
+
+        <div class="badges">
+            <span class="badge" id="badge-status">API：检测中…</span>
+            <span class="badge" id="badge-count">记录：—</span>
+        </div>
+    </header>
+
+    <main class="layout">
+        <!-- 筛选卡片 -->
+        <section class="card filters">
+            <div class="card-head">
+                <div>
+                    <div class="card-title">筛选条件</div>
+                    <div class="card-desc">支持 region / bizcircle / community / layout 精确匹配</div>
+                </div>
+                <div class="chip" id="chip-tip">同源访问：/api/listings</div>
+            </div>
+
+            <div class="form">
+                <div class="field">
+                    <label>区域 region</label>
+                    <input id="f-region" placeholder="例如：浦东" autocomplete="off" />
+                </div>
+                <div class="field">
+                    <label>商圈 bizcircle</label>
+                    <input id="f-bizcircle" placeholder="例如：北蔡" autocomplete="off" />
+                </div>
+                <div class="field">
+                    <label>小区 community</label>
+                    <input id="f-community" placeholder="例如：由由四村" autocomplete="off" />
+                </div>
+                <div class="field">
+                    <label>户型 layout</label>
+                    <input id="f-layout" placeholder="例如：2室1厅" autocomplete="off" />
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn primary" id="btn-search">
+                    <span class="btn-glow"></span>
+                    查询
+                </button>
+                <button class="btn" id="btn-reset">重置</button>
+
+                <div class="meta">
+                    <span id="meta-info" class="muted">准备就绪</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 列表卡片 -->
+        <section class="card results">
+            <div class="results-head">
+                <div>
+                    <div class="card-title">成交记录</div>
+                    <div class="card-desc">点击任意行查看 JSON 详情</div>
+                </div>
+
+                <div class="pager">
+                    <button class="btn icon" id="btn-prev" title="上一页">‹</button>
+                    <span class="pager-text" id="pager-text">第 1 / 1 页</span>
+                    <button class="btn icon" id="btn-next" title="下一页">›</button>
+
+                    <select id="page-size" class="select" title="每页条数">
+                        <option value="10">10/页</option>
+                        <option value="20" selected>20/页</option>
+                        <option value="50">50/页</option>
+                        <option value="100">100/页</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>house_id</th>
+                            <th>region</th>
+                            <th>bizcircle</th>
+                            <th>community</th>
+                            <th>layout</th>
+                            <th class="num">area</th>
+                            <th class="num">unit_price</th>
+                            <th class="num">total_wan</th>
+                            <th>deal_date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody">
+                        <!-- JS 渲染：默认先放骨架屏 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 趋势卡片 -->
+        <aside class="card trend">
+            <div class="card-title">价格走势</div>
+            <div class="card-desc">按 deal_date 月聚合：均价（元/㎡）+ 样本数</div>
+
+            <div class="trend-area" id="trend-area">
+                <div class="trend-empty" id="trend-empty">暂无走势数据</div>
+                <svg id="spark" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
+            </div>
+
+            <ul class="trend-list" id="trend-list"></ul>
+        </aside>
+    </main>
+
+    <!-- toast -->
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <!-- 详情弹窗 -->
+    <div class="modal hidden" id="modal" aria-hidden="true">
+        <div class="modal-backdrop" id="modal-backdrop"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-label="记录详情">
+            <div class="modal-head">
+                <div class="modal-title">记录详情 JSON</div>
+                <button class="btn icon" id="modal-close" title="关闭">✕</button>
+            </div>
+            <pre class="json" id="modal-json"></pre>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
