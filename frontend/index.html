@@ -1,13 +1,178 @@
 <!doctype html>
-<html lang="en">
-  <head>
+<html lang="zh-CN">
+
+<head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
-  </head>
-  <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
-  </body>
+    <title>HPQAQ · 房价看板</title>
+
+    <link rel="icon" href="/assets/logo.png" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+</head>
+
+<body>
+    <div class="bg" aria-hidden="true">
+        <div class="blob b1"></div>
+        <div class="blob b2"></div>
+        <div class="blob b3"></div>
+        <div class="grid"></div>
+        <div class="noise"></div>
+    </div>
+
+    <header class="navbar" id="navbar">
+        <a class="nav-brand" href="/" aria-label="HPQAQ">
+            <span class="nav-logo">
+                <img class="nav-logo-img" src="/assets/logo.png" alt="HPQAQ Logo" />
+            </span>
+            <span class="nav-name">HPQAQ</span>
+        </a>
+
+        <nav class="nav-center" id="nav-center">
+            <a href="#filters" data-i18n="nav.query">查询</a>
+            <a href="#results" data-i18n="nav.list">成交列表</a>
+            <a href="#trend" data-i18n="nav.trend">价格趋势</a>
+            <a href="#about" data-i18n="nav.about">关于</a>
+        </nav>
+
+        <div class="nav-right">
+            <span class="badge" id="badge-api">API：检测中…</span>
+            <span class="badge" id="badge-cities">城市：—</span>
+
+            <select id="nav-city" class="nav-select" title="城市"></select>
+
+            <button class="btn primary nav-btn" id="nav-refresh" type="button">
+                <span class="glow"></span><span data-i18n="btn.refresh">刷新</span>
+            </button>
+
+            <button class="btn icon nav-burger" id="nav-burger" type="button" aria-label="菜单">☰</button>
+        </div>
+    </header>
+
+    <main class="layout">
+        <section class="card filters" id="filters">
+            <div class="card-head">
+                <div>
+                    <div class="card-title" data-i18n="title.filters">查询条件</div>
+                    <div class="card-desc" data-i18n="desc.filters">选择城市后可按商圈/小区/户型精确筛选</div>
+                </div>
+                <div class="chip" id="chip" data-i18n="chip.connected">数据接口已连接</div>
+            </div>
+
+            <div class="form">
+                <div class="field">
+                    <label data-i18n="label.city">城市</label>
+                    <select id="f-city"></select>
+                </div>
+
+                <div class="field">
+                    <label data-i18n="label.region">区域</label>
+                    <input id="f-region" data-i18n-placeholder="ph.region" placeholder="（可选）例如：浦东 / 海淀"
+                        autocomplete="off" />
+                </div>
+
+                <div class="field">
+                    <label data-i18n="label.bizcircle">商圈</label>
+                    <input id="f-bizcircle" data-i18n-placeholder="ph.bizcircle" placeholder="（可选）例如：北蔡 / 中关村"
+                        autocomplete="off" />
+                </div>
+
+                <div class="field">
+                    <label data-i18n="label.community">小区</label>
+                    <input id="f-community" data-i18n-placeholder="ph.community" placeholder="（可选）例如：由由四村"
+                        autocomplete="off" />
+                </div>
+
+                <div class="field">
+                    <label data-i18n="label.layout">户型</label>
+                    <input id="f-layout" data-i18n-placeholder="ph.layout" placeholder="（可选）例如：2室1厅"
+                        autocomplete="off" />
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn primary" id="btn-search" type="button">
+                    <span class="glow"></span><span data-i18n="btn.search">查询</span>
+                </button>
+                <button class="btn" id="btn-reset" type="button" data-i18n="btn.reset">重置</button>
+                <div class="meta" id="meta" data-i18n="meta.ready">准备就绪</div>
+            </div>
+        </section>
+
+        <section class="card results" id="results">
+            <div class="results-head">
+                <div>
+                    <div class="card-title" data-i18n="title.list">成交列表</div>
+                    <div class="card-desc" data-i18n="desc.list">点击任意行查看中文详情；“↗”打开详情链接</div>
+                </div>
+
+                <div class="pager">
+                    <button class="btn icon" id="btn-prev" type="button" title="上一页">‹</button>
+                    <span class="pager-text" id="pager-text">第 1 / 1 页</span>
+                    <button class="btn icon" id="btn-next" type="button" title="下一页">›</button>
+
+                    <select id="page-size" class="select" title="每页条数">
+                        <option value="10">10/页</option>
+                        <option value="20" selected>20/页</option>
+                        <option value="50">50/页</option>
+                        <option value="100">100/页</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th data-i18n="th.bizcircle">商圈</th>
+                            <th data-i18n="th.community">小区</th>
+                            <th data-i18n="th.layout">户型</th>
+                            <th class="num" data-i18n="th.area">面积(㎡)</th>
+                            <th class="num" data-i18n="th.unit">单价(元/㎡)</th>
+                            <th class="num" data-i18n="th.total">总价(万)</th>
+                            <th data-i18n="th.dealdate">成交日期</th>
+                            <th data-i18n="th.detail">详情</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <aside class="card trend" id="trend">
+            <div class="card-title" data-i18n="title.trend">价格趋势</div>
+            <div class="card-desc" data-i18n="desc.trend">按月聚合成交日期：均价（元/㎡）与样本数</div>
+
+            <div class="spark-wrap">
+                <div class="spark-empty" id="spark-empty" data-i18n="empty.trend">暂无趋势数据</div>
+                <svg id="spark" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
+            </div>
+
+            <ul class="trend-list" id="trend-list"></ul>
+        </aside>
+    </main>
+
+    <footer id="about" class="about">
+        <div class="about-inner">
+            <div class="about-title">HPQAQ</div>
+            <div class="about-text" data-i18n="about.text">房产成交数据查询与趋势分析 · 数据读取自 data/ 目录 JSON</div>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <div class="modal hidden" id="modal" aria-hidden="true">
+        <div class="modal-backdrop" id="modal-backdrop"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-label="记录详情">
+            <div class="modal-head">
+                <div class="modal-title" data-i18n="modal.title">记录详情</div>
+                <button class="btn icon" id="modal-close" type="button" title="关闭">✕</button>
+            </div>
+            <pre class="json" id="modal-json"></pre>
+        </div>
+    </div>
+
+    <script src="/js/app.js"></script>
+</body>
+
 </html>

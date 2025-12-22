@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HPQAQ · Initializing</title>
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/init.css" />
+</head>
+
+<body>
+    <div class="bg" aria-hidden="true">
+        <div class="blob b1"></div>
+        <div class="blob b2"></div>
+        <div class="grid"></div>
+        <div class="scan"></div>
+        <div class="noise"></div>
+    </div>
+
+    <main class="wrap">
+        <section class="card init-card">
+            <div class="logo">
+                <img class="init-logo-img" src="/assets/logo.png" alt="HPQAQ Logo" />
+                <span class="glitch" data-text="HPQAQ">HPQAQ</span>
+                <span class="tag">House Price Query & Analysis Quick</span>
+            </div>
+
+
+            <p class="desc">
+                数据加载中：连接数据源 · 构建索引 · 准备可视化
+            </p>
+
+            <div class="progress">
+                <div class="bar"></div>
+            </div>
+
+            <div class="hint">
+                <span class="dot"></span>
+                <span id="hint-text">初始化中…</span>
+            </div>
+
+            <button class="enter" id="enterBtn" type="button">
+                <span class="pulse"></span>
+                进入 HPQAQ
+            </button>
+
+            <div class="foot">© HPQAQ · Powered by Flask · Data from /data</div>
+        </section>
+    </main>
+
+    <script src="/js/init.js"></script>
+</body>
+
+</html>

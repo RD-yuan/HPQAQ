@@ -1,0 +1,282 @@
+.init-logo-img {
+    width: 88px;
+    height: 88px;
+    object-fit: contain;
+    display: block;
+    margin-bottom: 6px;
+    filter: drop-shadow(0 18px 34px rgba(0, 0, 0, .55));
+    animation: initLogoFloat 2.8s ease-in-out infinite;
+}
+
+@keyframes initLogoFloat {
+
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: .92;
+    }
+
+    50% {
+        transform: translateY(-6px) scale(1.02);
+        opacity: 1;
+    }
+}
+
+/* init 页专属：额外扫描线/glitch/progress 等 */
+
+.scan {
+    position: absolute;
+    left: -10%;
+    right: -10%;
+    height: 180px;
+    background: linear-gradient(180deg, transparent, rgba(0, 213, 255, .10), transparent);
+    opacity: .55;
+    animation: scanMove 2.2s ease-in-out infinite;
+}
+
+@keyframes scanMove {
+    0% {
+        top: -220px;
+        opacity: 0;
+    }
+
+    18% {
+        opacity: .55;
+    }
+
+    50% {
+        top: 40vh;
+        opacity: .55;
+    }
+
+    82% {
+        opacity: .35;
+    }
+
+    100% {
+        top: 110vh;
+        opacity: 0;
+    }
+}
+
+.wrap {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 22px;
+}
+
+.init-card {
+    width: min(680px, calc(100vw - 26px));
+    border-radius: 22px;
+    backdrop-filter: blur(14px);
+    padding: 28px 26px 20px;
+    animation: cardIn .35s ease forwards;
+}
+
+@keyframes cardIn {
+    from {
+        transform: translateY(12px) scale(.98);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tag {
+    font-size: 12px;
+    color: rgba(234, 240, 255, .68);
+    letter-spacing: .4px;
+}
+
+.glitch {
+    display: inline-block;
+    font-weight: 900;
+    font-size: 48px;
+    letter-spacing: 2px;
+    position: relative;
+    line-height: 1;
+}
+
+.glitch::before,
+.glitch::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: .75;
+}
+
+.glitch::before {
+    transform: translateX(-1px);
+    color: rgba(0, 213, 255, .85);
+    animation: glitch1 1.9s infinite linear;
+}
+
+.glitch::after {
+    transform: translateX(1px);
+    color: rgba(255, 72, 180, .75);
+    animation: glitch2 2.3s infinite linear;
+}
+
+@keyframes glitch1 {
+    0% {
+        clip-path: inset(0 0 85% 0);
+    }
+
+    20% {
+        clip-path: inset(20% 0 55% 0);
+    }
+
+    40% {
+        clip-path: inset(55% 0 30% 0);
+    }
+
+    60% {
+        clip-path: inset(10% 0 70% 0);
+    }
+
+    80% {
+        clip-path: inset(70% 0 10% 0);
+    }
+
+    100% {
+        clip-path: inset(0 0 85% 0);
+    }
+}
+
+@keyframes glitch2 {
+    0% {
+        clip-path: inset(80% 0 0 0);
+    }
+
+    25% {
+        clip-path: inset(50% 0 20% 0);
+    }
+
+    50% {
+        clip-path: inset(15% 0 60% 0);
+    }
+
+    75% {
+        clip-path: inset(65% 0 12% 0);
+    }
+
+    100% {
+        clip-path: inset(80% 0 0 0);
+    }
+}
+
+.desc {
+    margin: 14px 0 12px;
+    color: rgba(234, 240, 255, .78);
+    font-size: 13px;
+}
+
+.progress {
+    width: 100%;
+    height: 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(0, 0, 0, .20);
+    overflow: hidden;
+}
+
+.bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, rgba(121, 97, 255, .9), rgba(0, 213, 255, .85), rgba(255, 72, 180, .75));
+    border-radius: 999px;
+    animation: loadBar 2.4s ease forwards;
+}
+
+@keyframes loadBar {
+    0% {
+        width: 0%;
+    }
+
+    60% {
+        width: 78%;
+    }
+
+    85% {
+        width: 92%;
+    }
+
+    100% {
+        width: 100%;
+    }
+}
+
+.hint {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: rgba(234, 240, 255, .68);
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(0, 213, 255, .9);
+    box-shadow: 0 0 18px rgba(0, 213, 255, .55);
+    animation: dotPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dotPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: .55;
+    }
+
+    50% {
+        transform: scale(1.35);
+        opacity: 1;
+    }
+}
+
+.enter {
+    margin-top: 16px;
+    width: 100%;
+    padding: 12px 14px;
+    border-radius: 14px;
+    border: 1px solid rgba(0, 213, 255, .30);
+    color: rgba(234, 240, 255, .92);
+    background: linear-gradient(135deg, rgba(121, 97, 255, .25), rgba(0, 213, 255, .18));
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    font-weight: 800;
+    letter-spacing: .4px;
+    transition: transform .12s ease, background .12s ease;
+}
+
+.enter:hover {
+    transform: translateY(-1px);
+    background: linear-gradient(135deg, rgba(121, 97, 255, .30), rgba(0, 213, 255, .22));
+}
+
+.enter:active {
+    transform: translateY(0) scale(.99);
+}
+
+.foot {
+    margin-top: 14px;
+    font-size: 12px;
+    color: rgba(234, 240, 255, .55);
+    text-align: center;
+}
