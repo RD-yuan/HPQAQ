@@ -2,3 +2,7 @@ requests
 beautifulsoup4
 lxml
 urllib3
+Flask==2.3.2
+SQLAlchemy==2.0.15
+Flask-SQLAlchemy==3.0.3
+pymysql==1.0.3
