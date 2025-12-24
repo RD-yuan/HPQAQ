@@ -1,26 +1,30 @@
 import os
+import json
+from pathlib import Path
 from datetime import datetime
 from flask import Flask, jsonify, request, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
+from sqlalchemy import func, text
+from sqlalchemy.exc import SQLAlchemyError
 
 # === 配置部分 ===
-# 请将 password 替换为您在数据库中设置的密码
 DB_USER = 'hp_user'
 DB_PASS = '123456'
 DB_HOST = '127.0.0.1'
 DB_NAME = 'house_price_db'
 
 app = Flask(__name__)
-# 使用 pymysql 连接 MySQL
-app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}?charset=utf8mb4'
+
+# 使用 pymysql 连接 MySQL（数据库可用时走这个；不可用则自动回退 JSON）
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    f'mysql+pymysql://{DB_USER}:{DB_PASS}@{DB_HOST}/{DB_NAME}?charset=utf8mb4'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['JSON_AS_ASCII'] = False
 
 db = SQLAlchemy(app)
 
 # === 数据模型 (Model) ===
-
 class City(db.Model):
     __tablename__ = 'cities'
     id = db.Column(db.Integer, primary_key=True)
@@ -35,139 +39,321 @@ class Region(db.Model):
 
 class Transaction(db.Model):
     __tablename__ = 'transactions'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     city_code = db.Column(db.String(20), db.ForeignKey('cities.code'), index=True)
     region_name = db.Column(db.String(50), index=True)
-    
-    # === 字段长度配置 (与导入时保持一致) ===
+
     bizcircle = db.Column(db.String(100), index=True)
-    community = db.Column(db.String(500), index=True) # 500 长度
+    community = db.Column(db.String(500), index=True)
     layout = db.Column(db.String(50))
-    
+
     total_price_wan = db.Column(db.Numeric(10, 2))
     unit_price_yuan_sqm = db.Column(db.Integer)
     area_sqm = db.Column(db.Numeric(10, 2))
-    
+
     deal_date = db.Column(db.Date, index=True)
-    
+
     house_id = db.Column(db.String(100), unique=True)
     orientation = db.Column(db.String(50))
     building_year = db.Column(db.String(20))
     floor = db.Column(db.String(50))
-    detail_url = db.Column(db.String(500)) # 500 长度
+    detail_url = db.Column(db.String(500))
     crawl_time = db.Column(db.DateTime, default=datetime.now)
+
+# === JSON 回退数据源 ===
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_ROOT / "data"
+
+CITY_JSON_MAP = {
+    "beijing": "crawl_history_beijing.json",
+    "shanghai": "crawl_history_shanghai.json",
+    "guangzhou": "crawl_history_guangzhou.json",
+    "shenzhen": "crawl_history_shenzhen.json",
+    "tianjin": "crawl_history_tianjin.json",
+    "taibei": "crawl_history_taibei.json",
+    "xinbei": "crawl_history_xinbei.json",
+}
+
+def db_is_available() -> bool:
+    """
+    探测数据库是否可用：
+    - MySQL 没安装/没启动/端口拒绝/驱动缺失 -> 返回 False
+    - MySQL 正常 -> True
+    """
+    try:
+        db.session.execute(text("SELECT 1"))
+        return True
+    except Exception:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return False
+
+def _parse_date_any(s):
+    if not s:
+        return None
+    if isinstance(s, datetime):
+        return s.date()
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return datetime.strptime(str(s), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+def _as_float(x, default=0.0):
+    if x is None or x == "":
+        return default
+    try:
+        return float(x)
+    except Exception:
+        return default
+
+def _as_int(x, default=0):
+    if x is None or x == "":
+        return default
+    try:
+        return int(float(x))
+    except Exception:
+        return default
+
+def load_city_items_from_json(city_code: str):
+    """从 data/crawl_history_xxx.json 读取数据列表"""
+    city_code = (city_code or "").strip().lower()
+    filename = CITY_JSON_MAP.get(city_code, f"crawl_history_{city_code}.json")
+    path = DATA_DIR / filename
+
+    if not path.exists():
+        return []
+
+    with path.open("r", encoding="utf-8") as f:
+        obj = json.load(f)
+
+    # 兼容：可能是 list，也可能是 {"items":[...]} / {"data":[...]}
+    if isinstance(obj, list):
+        return obj
+    if isinstance(obj, dict):
+        if isinstance(obj.get("items"), list):
+            return obj["items"]
+        if isinstance(obj.get("data"), list):
+            return obj["data"]
+    return []
+
+def normalize_item(raw: dict):
+    """
+    把 JSON 记录归一为前端需要的输出结构。
+    你给的 JSON 样例字段已完全匹配这里。
+    """
+    if not isinstance(raw, dict):
+        raw = {}
+
+    deal_date = raw.get("deal_date")
+    d_obj = _parse_date_any(deal_date)
+
+    return {
+        "house_id": raw.get("house_id"),
+        "region": raw.get("region") or raw.get("region_name"),
+        "bizcircle": raw.get("bizcircle"),
+        "community": raw.get("community"),
+        "layout": raw.get("layout"),
+        "area_sqm": _as_float(raw.get("area_sqm"), 0.0),
+        "total_price_wan": _as_float(raw.get("total_price_wan"), 0.0),
+        "unit_price_yuan_sqm": _as_int(raw.get("unit_price_yuan_sqm"), 0),
+        "deal_date": d_obj.isoformat() if d_obj else (str(deal_date) if deal_date else None),
+        "detail_url": raw.get("detail_url"),
+        "orientation": raw.get("orientation"),
+        "building_year": raw.get("building_year"),
+        "floor": raw.get("floor"),
+        "_deal_date_obj": d_obj,
+    }
 
 # === 辅助路径 ===
 FRONTEND_DIR = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "frontend"))
 
 # === API 接口 ===
-
 @app.get("/api/health")
 def health():
     """
-    前端初始化时调用此接口获取城市列表。
-    必须从数据库查询 City 表返回给前端。
+    前端初始化时调用此接口获取城市列表：
+    - DB 可用：从 City 表读取
+    - DB 不可用：从 CITY_JSON_MAP 返回
     """
     try:
-        cities = City.query.order_by(City.code).all()
-        return jsonify({
-            "ok": True,
-            "db": "mysql",
-            "cities": [c.code for c in cities] # 返回 ['xinbei']
-        })
+        if db_is_available():
+            cities = City.query.order_by(City.code).all()
+            return jsonify({
+                "ok": True,
+                "db": "mysql",
+                "cities": [c.code for c in cities]
+            })
+        else:
+            return jsonify({
+                "ok": True,
+                "db": "json",
+                "cities": sorted(CITY_JSON_MAP.keys())
+            })
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 500
 
 @app.get("/api/cities")
 def get_cities():
-    cities = City.query.order_by(City.code).all()
-    return jsonify({"cities": [c.code for c in cities]})
+    if db_is_available():
+        cities = City.query.order_by(City.code).all()
+        return jsonify({"cities": [c.code for c in cities]})
+    return jsonify({"cities": sorted(CITY_JSON_MAP.keys())})
 
 @app.get("/api/listings")
 def get_listings():
-    """获取成交列表"""
+    """获取成交列表（DB 可用走 DB，不可用走 JSON）"""
     city_code = request.args.get("city", "").strip().lower()
     if not city_code:
         return jsonify({"error": "missing_city"}), 400
 
     page = request.args.get("page", 1, type=int)
     page_size = request.args.get("page_size", 20, type=int)
-    
-    # 构造查询
-    query = Transaction.query.filter_by(city_code=city_code)
-    
-    # 筛选
-    if region := request.args.get("region"):
-        query = query.filter(Transaction.region_name == region)
-    if bizcircle := request.args.get("bizcircle"):
-        query = query.filter(Transaction.bizcircle == bizcircle)
-    if community := request.args.get("community"):
-        query = query.filter(Transaction.community.contains(community))
-    if layout := request.args.get("layout"):
-        query = query.filter(Transaction.layout == layout)
 
-    # 排序
-    query = query.order_by(Transaction.deal_date.desc())
-    
-    pagination = query.paginate(page=page, per_page=page_size, error_out=False)
-    
-    items = []
-    for item in pagination.items:
-        items.append({
-            "house_id": item.house_id,
-            "region": item.region_name,
-            "bizcircle": item.bizcircle,
-            "community": item.community,
-            "layout": item.layout,
-            "area_sqm": float(item.area_sqm) if item.area_sqm else 0,
-            "total_price_wan": float(item.total_price_wan) if item.total_price_wan else 0,
-            "unit_price_yuan_sqm": item.unit_price_yuan_sqm,
-            "deal_date": item.deal_date.isoformat() if item.deal_date else None,
-            "detail_url": item.detail_url,
-            "orientation": item.orientation,
-            "building_year": item.building_year,
-            "floor": item.floor
+    # --- 1) DB 可用：原 ORM 查询 ---
+    if db_is_available():
+        query = Transaction.query.filter_by(city_code=city_code)
+
+        if region := request.args.get("region"):
+            query = query.filter(Transaction.region_name == region)
+        if bizcircle := request.args.get("bizcircle"):
+            query = query.filter(Transaction.bizcircle == bizcircle)
+        if community := request.args.get("community"):
+            query = query.filter(Transaction.community.contains(community))
+        if layout := request.args.get("layout"):
+            query = query.filter(Transaction.layout == layout)
+
+        query = query.order_by(Transaction.deal_date.desc())
+        pagination = query.paginate(page=page, per_page=page_size, error_out=False)
+
+        items = []
+        for item in pagination.items:
+            items.append({
+                "house_id": item.house_id,
+                "region": item.region_name,
+                "bizcircle": item.bizcircle,
+                "community": item.community,
+                "layout": item.layout,
+                "area_sqm": float(item.area_sqm) if item.area_sqm else 0,
+                "total_price_wan": float(item.total_price_wan) if item.total_price_wan else 0,
+                "unit_price_yuan_sqm": item.unit_price_yuan_sqm,
+                "deal_date": item.deal_date.isoformat() if item.deal_date else None,
+                "detail_url": item.detail_url,
+                "orientation": item.orientation,
+                "building_year": item.building_year,
+                "floor": item.floor
+            })
+
+        return jsonify({
+            "items": items,
+            "total": pagination.total,
+            "page": page,
+            "page_size": page_size
         })
 
+    # --- 2) DB 不可用：JSON 回退 ---
+    raw_items = load_city_items_from_json(city_code)
+    items = [normalize_item(r) for r in raw_items]
+
+    # 过滤（按你的接口参数）
+    if region := request.args.get("region"):
+        items = [x for x in items if (x.get("region") or "") == region]
+    if bizcircle := request.args.get("bizcircle"):
+        items = [x for x in items if (x.get("bizcircle") or "") == bizcircle]
+    if community := request.args.get("community"):
+        items = [x for x in items if community in (x.get("community") or "")]
+    if layout := request.args.get("layout"):
+        items = [x for x in items if (x.get("layout") or "") == layout]
+
+    # 排序：按 deal_date 倒序
+    items.sort(key=lambda x: x.get("_deal_date_obj") or datetime.min.date(), reverse=True)
+
+    total = len(items)
+    start = (page - 1) * page_size
+    end = start + page_size
+    page_items = items[start:end]
+
+    # 去掉内部字段
+    for x in page_items:
+        x.pop("_deal_date_obj", None)
+
     return jsonify({
-        "items": items,
-        "total": pagination.total,
+        "items": page_items,
+        "total": total,
         "page": page,
         "page_size": page_size
     })
 
 @app.get("/api/price_trend")
 def get_price_trend():
-    """获取价格走势"""
+    """获取价格走势（DB 可用走 DB，不可用走 JSON）"""
     city_code = request.args.get("city", "").strip().lower()
     if not city_code:
         return jsonify({"error": "missing_city"}), 400
 
-    query = db.session.query(
-        func.date_format(Transaction.deal_date, '%Y-%m').label('month'),
-        func.avg(Transaction.unit_price_yuan_sqm).label('avg_unit'),
-        func.avg(Transaction.total_price_wan).label('avg_total'),
-        func.count(Transaction.id).label('count')
-    ).filter(
-        Transaction.city_code == city_code,
-        Transaction.deal_date.isnot(None)
-    )
+    # --- 1) DB 可用：原 MySQL 聚合 ---
+    if db_is_available():
+        query = db.session.query(
+            func.date_format(Transaction.deal_date, '%Y-%m').label('month'),
+            func.avg(Transaction.unit_price_yuan_sqm).label('avg_unit'),
+            func.avg(Transaction.total_price_wan).label('avg_total'),
+            func.count(Transaction.id).label('count')
+        ).filter(
+            Transaction.city_code == city_code,
+            Transaction.deal_date.isnot(None)
+        )
+
+        if region := request.args.get("region"):
+            query = query.filter(Transaction.region_name == region)
+        if bizcircle := request.args.get("bizcircle"):
+            query = query.filter(Transaction.bizcircle == bizcircle)
+
+        rows = query.group_by('month').order_by('month').all()
+
+        points = []
+        for r in rows:
+            points.append({
+                "month": r.month,
+                "avg_unit_price_yuan_sqm": int(r.avg_unit) if r.avg_unit else 0,
+                "avg_total_price_wan": round(float(r.avg_total), 2) if r.avg_total else 0,
+                "count": r.count
+            })
+
+        return jsonify({"points": points})
+
+    # --- 2) DB 不可用：JSON 回退聚合 ---
+    raw_items = load_city_items_from_json(city_code)
+    items = [normalize_item(r) for r in raw_items]
 
     if region := request.args.get("region"):
-        query = query.filter(Transaction.region_name == region)
+        items = [x for x in items if (x.get("region") or "") == region]
     if bizcircle := request.args.get("bizcircle"):
-        query = query.filter(Transaction.bizcircle == bizcircle)
-    
-    rows = query.group_by('month').order_by('month').all()
-    
+        items = [x for x in items if (x.get("bizcircle") or "") == bizcircle]
+
+    bucket = {}  # month -> {"sum_unit":..., "sum_total":..., "count":...}
+    for x in items:
+        d = x.get("_deal_date_obj")
+        if not d:
+            continue
+        month = d.strftime("%Y-%m")
+        b = bucket.setdefault(month, {"sum_unit": 0, "sum_total": 0.0, "count": 0})
+        b["sum_unit"] += _as_int(x.get("unit_price_yuan_sqm"), 0)
+        b["sum_total"] += _as_float(x.get("total_price_wan"), 0.0)
+        b["count"] += 1
+
     points = []
-    for r in rows:
+    for month in sorted(bucket.keys()):
+        b = bucket[month]
+        cnt = b["count"] or 1
         points.append({
-            "month": r.month,
-            "avg_unit_price_yuan_sqm": int(r.avg_unit) if r.avg_unit else 0,
-            "avg_total_price_wan": round(float(r.avg_total), 2) if r.avg_total else 0,
-            "count": r.count
+            "month": month,
+            "avg_unit_price_yuan_sqm": int(b["sum_unit"] / cnt),
+            "avg_total_price_wan": round(b["sum_total"] / cnt, 2),
+            "count": b["count"]
         })
 
     return jsonify({"points": points})
