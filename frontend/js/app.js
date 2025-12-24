@@ -55,14 +55,23 @@
 
   // ===== 城市显示名（下拉显示中文）=====
   const CITY_LABELS = {
+    // 短码
     bj: "北京",
     sh: "上海",
     gz: "广州",
     sz: "深圳",
+
+    // 长码（后端现在返回的）
+    beijing: "北京",
+    shanghai: "上海",
+    guangzhou: "广州",
+    shenzhen: "深圳",
+
     tianjin: "天津",
     taibei: "台北",
     xinbei: "新北",
   };
+
   const TW_CITIES = new Set(["taibei", "xinbei"]);
 
   function cityName(key) {
