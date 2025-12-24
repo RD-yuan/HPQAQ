@@ -156,8 +156,7 @@
     grid-template-columns: 1fr 420px;
     grid-template-areas:
         "filters results"
-        "trend   results"
-        "news    results";
+        "trend   results";
     /* 右侧列表跨两行 */
     gap: 16px;
 
@@ -168,8 +167,7 @@
 /* 关键：允许 grid item 缩小，否则表格 min-content 会把整列撑开导致“偏左/溢出” */
 .filters,
 .results,
-.trend,
-.news {
+.trend {
     min-width: 0;
 }
 
@@ -192,19 +190,13 @@
     align-self: start;
 }
 
-.news {
-    grid-area: news;
-    align-self: start;
-}
-
 @media (max-width:1100px) {
     .layout {
         grid-template-columns: 1fr;
         grid-template-areas:
             "filters"
             "results"
-            "trend"
-            "news";
+            "trend";
     }
 }
 
@@ -385,85 +377,6 @@
     display: flex;
     justify-content: space-between;
     gap: 10px;
-    font-size: 12px;
-}
-
-/* ===== news ===== */
-.news {
-    padding: 16px;
-}
-
-.news-head {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 10px;
-}
-
-.news-meta {
-    font-size: 12px;
-    color: rgba(234, 240, 255, .60);
-    margin-bottom: 10px;
-}
-
-.news-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    max-height: 360px;
-    overflow: auto;
-}
-
-.news-item {
-    border: 1px solid rgba(255, 255, 255, .10);
-    border-radius: 14px;
-    background: rgba(255, 255, 255, .05);
-    padding: 10px 10px;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-}
-
-.news-rank {
-    flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
-    border-radius: 10px;
-    display: grid;
-    place-items: center;
-    font-weight: 800;
-    font-size: 12px;
-    color: rgba(234, 240, 255, .95);
-    border: 1px solid rgba(255, 255, 255, .12);
-    background: rgba(0, 213, 255, .12);
-}
-
-.news-title {
-    text-decoration: none;
-    color: rgba(234, 240, 255, .90);
-    line-height: 1.35;
-    font-size: 13px;
-}
-
-.news-title:hover {
-    text-decoration: underline;
-}
-
-.news-sub {
-    font-size: 12px;
-    color: rgba(234, 240, 255, .60);
-    margin-top: 4px;
-}
-
-.news-empty {
-    display: none;
-    place-items: center;
-    padding: 18px 0 4px;
-    color: rgba(234, 240, 255, .65);
     font-size: 12px;
 }
 

@@ -1,20 +1,11 @@
 import os
 import json
-import re
-import time
-import html as _html
 from pathlib import Path
 from datetime import datetime
-from urllib.parse import urljoin
 from flask import Flask, jsonify, request, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, text
 from sqlalchemy.exc import SQLAlchemyError
-
-try:
-    import requests
-except Exception:
-    requests = None
 
 # === 配置部分 ===
 DB_USER = 'hp_user'
@@ -83,146 +74,6 @@ CITY_JSON_MAP = {
     "taibei": "crawl_history_taibei.json",
     "xinbei": "crawl_history_xinbei.json",
 }
-
-# === 房天下新闻热榜（抓取 newsindex.html 的“房产热榜”） ===
-# 说明：新闻是前端“新闻热榜”模块的数据源；用户点击后直接跳转到房天下原文页面。
-FANG_NEWS_SUBDOMAIN_MAP = {
-    "beijing": None,   # https://news.fang.com
-    "shanghai": "sh",
-    "guangzhou": "gz",
-    "shenzhen": "sz",
-    "tianjin": "tj",
-    # 台湾城市：暂时回落到全国/北京新闻页（房天下并不一定有对应子站）
-    "taibei": None,
-    "xinbei": None,
-}
-
-_FANG_NEWS_CACHE = {}  # cache_key -> {ts, fetched_at, source_url, items}
-_FANG_NEWS_TTL_SECONDS = 10 * 60
-
-def _fang_news_index_url(city_code: str) -> str:
-    city_code = (city_code or "").strip().lower()
-    sub = FANG_NEWS_SUBDOMAIN_MAP.get(city_code, None)
-    if not sub:
-        return "https://news.fang.com/newsindex.html"
-    return f"https://{sub}.news.fang.com/newsindex.html"
-
-def _http_get_text(url: str, timeout: int = 8) -> str:
-    if requests is None:
-        raise RuntimeError("requests_not_installed")
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
-        ),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.6",
-        "Connection": "close",
-    }
-    r = requests.get(url, headers=headers, timeout=timeout)
-    r.raise_for_status()
-    # requests 默认会根据 headers/响应推断编码；这里再兜底一次
-    if not r.encoding:
-        r.encoding = "utf-8"
-    return r.text
-
-def _strip_tags(s: str) -> str:
-    return re.sub(r"<[^>]+>", "", s or "")
-
-def _parse_fang_hot_list(html_text: str, page_url: str, limit: int = 10):
-    """从 newsindex.html 中提取“房产热榜”列表"""
-    if not html_text:
-        return []
-
-    # 优先只截取“房产热榜”附近，减少误匹配
-    anchor_html = html_text
-    pos = html_text.find("房产热榜")
-    if pos != -1:
-        anchor_html = html_text[pos: pos + 80_000]
-
-    anchors = re.findall(
-        r"<a\s+[^>]*href=['\"]([^'\"]+)['\"][^>]*>(.*?)</a>",
-        anchor_html,
-        flags=re.IGNORECASE | re.DOTALL,
-    )
-
-    items = []
-    seen = set()
-
-    for href, inner in anchors:
-        if len(items) >= limit:
-            break
-        if not href or href.startswith("javascript"):
-            continue
-        url = urljoin(page_url, href)
-        if url in seen:
-            continue
-
-        text = _html.unescape(_strip_tags(inner))
-        text = re.sub(r"\s+", " ", text).strip()
-        if not text:
-            continue
-        if "更多" in text or "换一换" in text:
-            continue
-
-        # 房产热榜一般是 open/\d+.html
-        if "/open/" not in url:
-            continue
-
-        # 注意：房天下热榜标题里可能以年份/编号开头（如“2025…”、“82…”），
-        # 之前用“前 1-2 位数字=排名”的规则会误判，导致出现 82/92 这种“排名”。
-        # 这里改为：列表序号永远按抓取顺序 1..limit；
-        # 仅当标题确实以 1..limit 的数字开头时，才把这段数字从标题里剥离（避免显示成“1标题”）。
-        title = text
-        m = re.match(r"^(\d{1,2})\s*(.*)$", text)
-        if m:
-            try:
-                candidate = int(m.group(1))
-                rest = (m.group(2) or "").strip()
-                if 1 <= candidate <= limit and rest:
-                    title = rest
-            except Exception:
-                pass
-
-        items.append({
-            "rank": len(items) + 1,
-            "title": title,
-            "url": url,
-        })
-        seen.add(url)
-
-    # 兜底：如果页面结构变化，退回抓取任意 open 页面链接
-    if not items:
-        anchors2 = re.findall(
-            r"<a\s+[^>]*href=['\"]([^'\"]*open/\d+\.html)['\"][^>]*>(.*?)</a>",
-            html_text,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        for href, inner in anchors2:
-            if len(items) >= limit:
-                break
-            url = urljoin(page_url, href)
-            if url in seen:
-                continue
-            text = _html.unescape(_strip_tags(inner))
-            text = re.sub(r"\s+", " ", text).strip()
-            if not text or "更多" in text:
-                continue
-            title = text
-            m = re.match(r"^(\d{1,2})\s*(.*)$", text)
-            if m:
-                try:
-                    candidate = int(m.group(1))
-                    rest = (m.group(2) or "").strip()
-                    if 1 <= candidate <= limit and rest:
-                        title = rest
-                except Exception:
-                    pass
-            items.append({"rank": len(items) + 1, "title": title, "url": url})
-            seen.add(url)
-
-    return items
 
 def db_is_available() -> bool:
     """
@@ -506,61 +357,6 @@ def get_price_trend():
         })
 
     return jsonify({"points": points})
-
-
-@app.get("/api/fang_news")
-def get_fang_news():
-    """房天下“房产热榜”新闻列表（点击后跳转房天下原文）。"""
-    city_code = (request.args.get("city") or "").strip().lower() or "beijing"
-    limit = request.args.get("limit", 10, type=int)
-    limit = max(1, min(int(limit or 10), 20))
-
-    source_url = _fang_news_index_url(city_code)
-    cache_key = f"{city_code}|{limit}|{source_url}"
-    now = time.time()
-
-    hit = _FANG_NEWS_CACHE.get(cache_key)
-    if hit and (now - hit.get("ts", 0) < _FANG_NEWS_TTL_SECONDS):
-        return jsonify({
-            "ok": True,
-            "city": city_code,
-            "source_url": hit.get("source_url", source_url),
-            "fetched_at": hit.get("fetched_at"),
-            "cached": True,
-            "items": hit.get("items", []),
-        })
-
-    fetched_at = datetime.utcnow().isoformat() + "Z"
-    try:
-        html_text = _http_get_text(source_url)
-        items = _parse_fang_hot_list(html_text, source_url, limit=limit)
-    except Exception as e:
-        return jsonify({
-            "ok": False,
-            "city": city_code,
-            "source_url": source_url,
-            "fetched_at": fetched_at,
-            "cached": False,
-            "items": [],
-            "error": str(e),
-        }), 502
-
-    payload = {
-        "ok": True,
-        "city": city_code,
-        "source_url": source_url,
-        "fetched_at": fetched_at,
-        "cached": False,
-        "items": items,
-    }
-
-    _FANG_NEWS_CACHE[cache_key] = {
-        "ts": now,
-        "source_url": source_url,
-        "fetched_at": fetched_at,
-        "items": items,
-    }
-    return jsonify(payload)
 
 # === 静态文件托管 ===
 @app.route("/", defaults={"path": ""})

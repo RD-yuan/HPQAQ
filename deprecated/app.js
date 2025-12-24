@@ -34,12 +34,6 @@
     spark: $("spark"),
     trendList: $("trend-list"),
 
-    // news
-    btnNewsRefresh: $("btn-news-refresh"),
-    newsMeta: $("news-meta"),
-    newsList: $("news-list"),
-    newsEmpty: $("news-empty"),
-
     // ui
     toast: $("toast"),
     modal: $("modal"),
@@ -58,10 +52,6 @@
     locale: "hans", // hans / hant
     currency: "CNY", // CNY / TWD
     localeTag: "zh-Hans-CN",
-
-    newsLoading: false,
-    newsCity: "",
-    newsLastFetchedAt: 0,
   };
 
   const CITY_LABELS = {
@@ -96,7 +86,6 @@
       "nav.query": "查询",
       "nav.list": "成交列表",
       "nav.trend": "价格趋势",
-      "nav.news": "新闻热榜",
       "nav.about": "关于",
       "btn.refresh": "刷新",
       "btn.search": "查询",
@@ -107,12 +96,6 @@
       "desc.list": "点击任意行查看中文详情；“↗”打开详情链接",
       "title.trend": "价格趋势",
       "desc.trend": "按月聚合成交日期：均价（元/㎡）与样本数",
-      "title.news": "房天下热榜",
-      "desc.news": "自动抓取房天下「房产热榜」，点击标题跳转原文",
-      "btn.news_refresh": "更新",
-      "empty.news": "暂无热榜新闻",
-      "news.meta": "来源：房天下 · {city} · {time}",
-      "toast.news_fail": "新闻热榜加载失败",
       "label.city": "城市",
       "label.region": "区域",
       "label.bizcircle": "商圈",
@@ -154,7 +137,6 @@
       "nav.query": "查詢",
       "nav.list": "成交列表",
       "nav.trend": "價格趨勢",
-      "nav.news": "新聞熱榜",
       "nav.about": "關於",
       "btn.refresh": "重新整理",
       "btn.search": "查詢",
@@ -165,12 +147,6 @@
       "desc.list": "點擊任意列查看詳情；「↗」開啟詳情連結",
       "title.trend": "價格趨勢",
       "desc.trend": "按月彙總成交日期：均價（NT$/㎡）與樣本數",
-      "title.news": "房天下熱榜",
-      "desc.news": "自動抓取房天下「房產熱榜」，點擊標題跳轉原文",
-      "btn.news_refresh": "更新",
-      "empty.news": "暫無熱榜新聞",
-      "news.meta": "來源：房天下 · {city} · {time}",
-      "toast.news_fail": "新聞熱榜載入失敗",
       "label.city": "城市",
       "label.region": "區域",
       "label.bizcircle": "商圈",
@@ -590,111 +566,6 @@
       .join("");
   }
 
-  // ===== news（房天下热榜） =====
-  function fmtLocalTime(iso) {
-    if (!iso) return "-";
-    try {
-      const d = new Date(iso);
-      if (!Number.isFinite(d.getTime())) return String(iso);
-      return d.toLocaleString(state.localeTag, { hour12: false });
-    } catch {
-      return String(iso);
-    }
-  }
-
-  function setNewsMeta(cityKey, isoTime) {
-    if (!els.newsMeta) return;
-    els.newsMeta.textContent = t("news.meta", {
-      city: cityName(cityKey),
-      time: fmtLocalTime(isoTime),
-    });
-  }
-
-  function renderNewsSkeleton(n = 6) {
-    if (!els.newsList) return;
-    if (els.newsEmpty) els.newsEmpty.style.display = "none";
-
-    els.newsList.innerHTML = Array.from({ length: n })
-      .map(
-        (_, i) => `
-        <li class="news-item" aria-hidden="true">
-          <div class="news-rank">${i + 1}</div>
-          <div style="flex:1">
-            <div class="skeleton" style="height:14px;width:92%"></div>
-            <div class="skeleton" style="height:12px;width:58%;margin-top:8px"></div>
-          </div>
-        </li>`
-      )
-      .join("");
-  }
-
-  function renderNews(items, cityKey, fetchedAt, sourceUrl) {
-    if (!els.newsList) return;
-
-    const arr = Array.isArray(items) ? items : [];
-    if (!arr.length) {
-      els.newsList.innerHTML = "";
-      if (els.newsEmpty) els.newsEmpty.style.display = "grid";
-      setNewsMeta(cityKey, fetchedAt);
-      return;
-    }
-
-    if (els.newsEmpty) els.newsEmpty.style.display = "none";
-
-    els.newsList.innerHTML = arr
-      .map((x) => {
-        const rank = x.rank ?? "-";
-        const url = x.url || "";
-        const title = x.title || "-";
-        const sub = x.sub || "";
-
-        return `
-          <li class="news-item">
-            <div class="news-rank">${rank}</div>
-            <div style="flex:1;min-width:0">
-              <a class="news-title" href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>
-              ${sub ? `<div class="news-sub">${sub}</div>` : ""}
-            </div>
-          </li>`;
-      })
-      .join("");
-
-    setNewsMeta(cityKey, fetchedAt);
-    if (sourceUrl && els.newsMeta) {
-      // 在 meta 末尾附上来源 URL（可复制）
-      els.newsMeta.title = sourceUrl;
-    }
-  }
-
-  async function loadNews(cityKey, { force = false } = {}) {
-    const city = String(cityKey || "").trim().toLowerCase();
-    if (!city || !els.newsList) return;
-
-    const now = Date.now();
-    const fresh = now - (state.newsLastFetchedAt || 0) < 5 * 60 * 1000;
-    if (!force && city === state.newsCity && fresh) return;
-
-    state.newsLoading = true;
-    if (els.btnNewsRefresh) els.btnNewsRefresh.disabled = true;
-    renderNewsSkeleton(6);
-    setNewsMeta(city, new Date().toISOString());
-
-    try {
-      const data = await apiGet("/api/fang_news", { city, limit: 10 });
-      state.newsCity = city;
-      state.newsLastFetchedAt = Date.now();
-      renderNews(data.items || [], city, data.fetched_at, data.source_url);
-    } catch (e) {
-      state.newsCity = city;
-      state.newsLastFetchedAt = Date.now();
-      renderNews([], city, new Date().toISOString());
-      toast(`${t("toast.news_fail")}：${e.message}`);
-    } finally {
-      state.newsLoading = false;
-      if (els.btnNewsRefresh) els.btnNewsRefresh.disabled = false;
-    }
-  }
-
   async function loadListingsAndTrend() {
     const q = getQuery();
     if (!q.city) {
@@ -747,9 +618,6 @@
       clearSpark();
       renderTrendList([], q.city);
     }
-
-    // 新闻热榜：只在城市变化/用户强制刷新时才会真的去请求（loadNews 内有节流）
-    loadNews(q.city).catch(() => void 0);
   }
 
   // ===== 事件绑定 =====
@@ -766,10 +634,6 @@
     state.page = 1;
     toast(t("toast.reset"));
     loadListingsAndTrend();
-  });
-
-  els.btnNewsRefresh?.addEventListener("click", () => {
-    loadNews(els.fCity?.value, { force: true });
   });
 
   els.btnPrev?.addEventListener("click", () => {
@@ -833,7 +697,6 @@
   els.navRefresh?.addEventListener("click", () => {
     state.page = 1;
     loadListingsAndTrend();
-    loadNews(els.navCity?.value || els.fCity?.value, { force: true });
     document.body.classList.remove("nav-open");
   });
 
