@@ -517,31 +517,87 @@
         community: q.community,
         layout: q.layout,
       });
-      const points = tdata.points || [];
+
+      const pointsAll = tdata.points || [];
+      const points = filterTrendPoints(pointsAll, q.city);
+
+      updateTrendDesc(q.city, points);
       renderSpark(points);
-      renderTrendList(points);
+      renderTrendList(points, q.city);
+
     } catch {
+      updateTrendDesc(q.city, []);
       renderSpark([]);
-      renderTrendList([]);
+      renderTrendList([], q.city);
     }
+
   }
 
   function clearSpark() {
     if (els.spark) els.spark.innerHTML = "";
   }
+  function sortTrendPoints(points) {
+    if (!Array.isArray(points)) return [];
+    return points
+      .slice()
+      .filter(p => p && p.month)
+      .sort((a, b) => String(a.month).localeCompare(String(b.month)));
+  }
+
+  // 台北/新北 -> 36个月，其它 -> 12个月
+  function filterTrendPoints(points, cityKey) {
+    const limit = isTaiwanCity(cityKey) ? 36 : 12;
+    const ps = sortTrendPoints(points);
+    if (ps.length <= limit) return ps;
+    return ps.slice(ps.length - limit);
+  }
+
+  // 动态更新趋势描述：显示“近N个月”
+  function updateTrendDesc(cityKey, pointsFiltered) {
+    const el = document.querySelector("#trend .card-desc");
+    if (!el) return;
+
+    const span = Math.max(0, (pointsFiltered || []).length);
+    const suffix =
+      state.locale === "hant"
+        ? ` · 近${span}個月`
+        : ` · 近${span}个月`;
+
+    el.textContent = `${t("desc.trend")}${suffix}`;
+  }
+
+  function smoothPath(xy) {
+    if (!xy || xy.length < 2) return "";
+    let d = `M ${xy[0].x.toFixed(1)} ${xy[0].y.toFixed(1)}`;
+    for (let i = 0; i < xy.length - 1; i++) {
+      const p0 = xy[i - 1] || xy[i];
+      const p1 = xy[i];
+      const p2 = xy[i + 1];
+      const p3 = xy[i + 2] || p2;
+
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+
+      d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+    }
+    return d;
+  }
 
   function renderSpark(points) {
     if (!els.spark || !els.sparkEmpty) return;
-    clearSpark();
+    els.spark.innerHTML = "";
 
     if (!points || points.length < 2) {
       els.sparkEmpty.style.display = "grid";
       return;
     }
 
+    // 取有效数值
     const values = points
-      .map((p) => Number(p.avg_unit_price_yuan_sqm))
-      .filter((v) => Number.isFinite(v));
+      .map(p => Number(p.avg_unit_price_yuan_sqm))
+      .filter(v => Number.isFinite(v));
 
     if (values.length < 2) {
       els.sparkEmpty.style.display = "grid";
@@ -550,70 +606,112 @@
 
     els.sparkEmpty.style.display = "none";
 
-    const w = 600, h = 220, padX = 18, padY = 18;
-    const minV = Math.min(...values), maxV = Math.max(...values);
-    const span = Math.max(1, maxV - minV);
+    const w = 600, h = 220;
+    const padX = 18, padY = 18;
+    const innerW = w - padX * 2;
+    const innerH = h - padY * 2;
 
-    const toX = (i) => padX + (i * (w - padX * 2)) / (points.length - 1);
-    const toY = (v) => (h - padY) - ((v - minV) * (h - padY * 2)) / span;
+    let minV = Math.min(...values);
+    let maxV = Math.max(...values);
+
+    // 给Y轴留一点呼吸空间（10%）
+    const span = Math.max(1, maxV - minV);
+    minV = minV - span * 0.10;
+    maxV = maxV + span * 0.10;
+
+    const toX = (i) => padX + (i * innerW) / (points.length - 1);
+    const toY = (v) => (h - padY) - ((v - minV) * innerH) / Math.max(1e-6, (maxV - minV));
 
     const xy = points.map((p, i) => {
       const v = Number(p.avg_unit_price_yuan_sqm);
-      return { x: toX(i), y: toY(Number.isFinite(v) ? v : minV) };
+      const vv = Number.isFinite(v) ? v : values[0];
+      return { x: toX(i), y: toY(vv), v: vv, month: p.month };
     });
 
-    const d = xy.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
-    const dFill = `${d} L ${xy[xy.length - 1].x.toFixed(1)} ${(h - padY).toFixed(1)} L ${xy[0].x.toFixed(1)} ${(h - padY).toFixed(1)} Z`;
+    const dLine = smoothPath(xy);
+    const dFill = `${dLine} L ${xy[xy.length - 1].x.toFixed(1)} ${(h - padY).toFixed(1)} L ${xy[0].x.toFixed(1)} ${(h - padY).toFixed(1)} Z`;
+
+    // 关键月份刻度：首/中/尾（点多时）
+    const ticks = [];
+    ticks.push({ i: 0, label: xy[0].month });
+    if (xy.length > 12) ticks.push({ i: Math.floor((xy.length - 1) / 2), label: xy[Math.floor((xy.length - 1) / 2)].month });
+    ticks.push({ i: xy.length - 1, label: xy[xy.length - 1].month });
+
+    // 网格线（4条）
+    const gridLines = Array.from({ length: 4 }).map((_, i) => {
+      const y = padY + (i * innerH) / 3;
+      return `<line x1="${padX}" y1="${y.toFixed(1)}" x2="${(w - padX).toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.10)" stroke-width="1"/>`;
+    }).join("");
+
+    // y轴标注（min/max）
+    const yMaxLabel = fmtNum0(maxV);
+    const yMinLabel = fmtNum0(minV);
 
     els.spark.innerHTML = `
-      <defs>
-        <linearGradient id="gLine" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0%" stop-color="rgba(121,97,255,.95)"/>
-          <stop offset="50%" stop-color="rgba(0,213,255,.95)"/>
-          <stop offset="100%" stop-color="rgba(255,72,180,.9)"/>
-        </linearGradient>
-        <linearGradient id="gFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="rgba(0,213,255,.22)"/>
-          <stop offset="100%" stop-color="rgba(0,213,255,0)"/>
-        </linearGradient>
-      </defs>
-      <path d="${dFill}" fill="url(#gFill)"></path>
-      <path d="${d}" fill="none" stroke="url(#gLine)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"></path>
-      ${xy.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.4" fill="rgba(234,240,255,.92)" opacity=".9"></circle>`).join("")}
-    `;
+    <defs>
+      <linearGradient id="gLine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="rgba(121,97,255,.95)"/>
+        <stop offset="50%" stop-color="rgba(0,213,255,.95)"/>
+        <stop offset="100%" stop-color="rgba(255,72,180,.9)"/>
+      </linearGradient>
+      <linearGradient id="gFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="rgba(0,213,255,.22)"/>
+        <stop offset="100%" stop-color="rgba(0,213,255,0)"/>
+      </linearGradient>
+    </defs>
+
+    ${gridLines}
+
+    <text x="${w - padX}" y="${padY + 10}" text-anchor="end" font-size="12" fill="rgba(234,240,255,.65)">${yMaxLabel}</text>
+    <text x="${w - padX}" y="${h - padY}" text-anchor="end" font-size="12" fill="rgba(234,240,255,.45)">${yMinLabel}</text>
+
+    <path d="${dFill}" fill="url(#gFill)"></path>
+    <path d="${dLine}" fill="none" stroke="url(#gLine)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"></path>
+
+    ${xy.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="rgba(234,240,255,.92)" opacity=".9"></circle>`).join("")}
+
+    ${ticks.map(tk => {
+      const x = toX(tk.i);
+      return `<text x="${x.toFixed(1)}" y="${(h - 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="rgba(234,240,255,.55)">${tk.label}</text>`;
+    }).join("")}
+  `;
   }
 
-  function renderTrendList(points) {
+
+  function renderTrendList(points, cityKey) {
     if (!els.trendList) return;
     if (!points || !points.length) {
       els.trendList.innerHTML = "";
       return;
     }
 
+    const n = isTaiwanCity(cityKey) ? 12 : 8;
+
     els.trendList.innerHTML = points
       .slice()
       .reverse()
-      .slice(0, 8)
+      .slice(0, n)
       .map((p) => {
         const avgTotal = fmtTotalWan(p.avg_total_price_wan);
         const avgUnit = fmtUnitPrice(p.avg_unit_price_yuan_sqm);
         const unitSuffix = t("trend.unit_suffix");
 
         return `
-          <li>
-            <div>
-              <div><b>${p.month}</b> · <span style="color:rgba(234,240,255,.68)">${t("trend.samples")}</span> ${p.count}</div>
-              <div style="color:rgba(234,240,255,.68)">${t("trend.avg_total", { v: avgTotal })}</div>
-            </div>
-            <div style="text-align:right">
-              <div><b>${avgUnit}</b></div>
-              <div style="color:rgba(234,240,255,.68)">${unitSuffix}</div>
-            </div>
-          </li>
-        `;
+        <li>
+          <div>
+            <div><b>${p.month}</b> · <span style="color:rgba(234,240,255,.68)">${t("trend.samples")}</span> ${p.count}</div>
+            <div style="color:rgba(234,240,255,.68)">${t("trend.avg_total", { v: avgTotal })}</div>
+          </div>
+          <div style="text-align:right">
+            <div><b>${avgUnit}</b></div>
+            <div style="color:rgba(234,240,255,.68)">${unitSuffix}</div>
+          </div>
+        </li>
+      `;
       })
       .join("");
   }
+
 
   // ===== 事件绑定 =====
   els.btnSearch?.addEventListener("click", () => {
