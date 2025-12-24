@@ -3,17 +3,23 @@
 
   const els = {
     // navbar
+    navbar: $("navbar"),
     navCity: $("nav-city"),
     navRefresh: $("nav-refresh"),
     navBurger: $("nav-burger"),
     navCenter: $("nav-center"),
-    navbar: $("navbar"),
+    navOverlay: $("nav-overlay"),
     badgeApi: $("badge-api"),
     badgeCities: $("badge-cities"),
+
+    // page regions (for modal a11y)
+    main: $("main"),
+    about: $("about"),
 
     // filters
     meta: $("meta"),
     chip: $("chip"),
+    filtersForm: $("filters-form"),
     fCity: $("f-city"),
     fRegion: $("f-region"),
     fBizcircle: $("f-bizcircle"),
@@ -27,11 +33,16 @@
     btnNext: $("btn-next"),
     pageSize: $("page-size"),
     pagerText: $("pager-text"),
+    listState: $("list-state"),
+    tableWrap: $("table-wrap"),
     tbody: $("tbody"),
 
     // trend
+    sparkWrap: $("spark-wrap"),
     sparkEmpty: $("spark-empty"),
     spark: $("spark"),
+    sparkTip: $("spark-tip"),
+    sparkCursor: $("spark-cursor"),
     trendList: $("trend-list"),
 
     // news
@@ -44,6 +55,7 @@
     toast: $("toast"),
     modal: $("modal"),
     modalBackdrop: $("modal-backdrop"),
+    modalCard: $("modal-card"),
     modalClose: $("modal-close"),
     modalJson: $("modal-json"),
   };
@@ -54,11 +66,27 @@
     total: 0,
     maxPage: 1,
     loading: false,
+
     cities: [],
     locale: "hans", // hans / hant
     currency: "CNY", // CNY / TWD
     localeTag: "zh-Hans-CN",
 
+    // request controllers
+    ctrlList: null,
+    ctrlTrend: null,
+    ctrlNews: null,
+
+    // modal / nav
+    modalOpen: false,
+    lastFocus: null,
+    navOpen: false,
+
+    // spark hover
+    sparkXY: [],
+    sparkPoints: [],
+
+    // news state
     newsLoading: false,
     newsCity: "",
     newsLastFetchedAt: 0,
@@ -104,7 +132,7 @@
       "title.filters": "查询条件",
       "desc.filters": "选择城市后可按商圈/小区/户型精确筛选",
       "title.list": "成交列表",
-      "desc.list": "点击任意行查看中文详情；“↗”打开详情链接",
+      "desc.list": "点击任意行查看详情；“↗”打开详情链接",
       "title.trend": "价格趋势",
       "desc.trend": "按月聚合成交日期：均价（元/㎡）与样本数",
       "title.news": "房天下热榜",
@@ -149,6 +177,9 @@
       "trend.avg_total": "均总价（万）：{v}",
       "trend.samples": "样本",
       "trend.unit_suffix": "元/㎡",
+      "list.loading": "正在加载列表…",
+      "list.empty": "没有匹配记录，尝试放宽条件或更换城市。",
+      "spark.tip": "{month} · 均价 {unit} {suffix} · 样本 {count}",
     },
     hant: {
       "nav.query": "查詢",
@@ -165,7 +196,7 @@
       "desc.list": "點擊任意列查看詳情；「↗」開啟詳情連結",
       "title.trend": "價格趨勢",
       "desc.trend": "按月彙總成交日期：均價（NT$/㎡）與樣本數",
-      "title.news": "房天下熱榜",
+      "title.news": "房天下热榜",
       "desc.news": "自動抓取房天下「房產熱榜」，點擊標題跳轉原文",
       "btn.news_refresh": "更新",
       "empty.news": "暫無熱榜新聞",
@@ -207,13 +238,16 @@
       "trend.avg_total": "均總價（萬 NT$）：{v}",
       "trend.samples": "樣本",
       "trend.unit_suffix": "NT$/㎡",
+      "list.loading": "正在載入列表…",
+      "list.empty": "沒有符合條件的紀錄，請放寬條件或更換城市。",
+      "spark.tip": "{month} · 均價 {unit} {suffix} · 樣本 {count}",
     },
   };
 
   function t(key, vars = {}) {
     const dict = I18N[state.locale] || I18N.hans;
     let s = dict[key] || key;
-    Object.entries(vars).forEach(([k, v]) => (s = s.replaceAll(`{${k}}`, String(v))));
+    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
     return s;
   }
 
@@ -240,7 +274,7 @@
 
     updateI18nDom();
 
-    if (els.badgeApi) els.badgeApi.textContent = t("badge.api_ok");
+    if (els.badgeApi && !els.badgeApi.textContent) els.badgeApi.textContent = t("badge.api_ok");
     if (els.badgeCities) {
       const names = (state.cities || []).map(cityName).join(", ");
       els.badgeCities.textContent = t("badge.cities", { names: names || "-" });
@@ -253,19 +287,30 @@
   const nf0 = () => new Intl.NumberFormat(state.localeTag, { maximumFractionDigits: 0 });
   const nf2 = () => new Intl.NumberFormat(state.localeTag, { maximumFractionDigits: 2 });
 
-  function fmt(x) {
-    return x === null || x === undefined || x === "" ? "-" : String(x);
-  }
+  const fmt = (x) => (x === null || x === undefined || x === "" ? "-" : String(x));
+
   function fmtNum0(x) {
     if (x === null || x === undefined || x === "" || !Number.isFinite(Number(x))) return "-";
     return nf0().format(Number(x));
   }
+
   function fmtNum2(x) {
     if (x === null || x === undefined || x === "" || !Number.isFinite(Number(x))) return "-";
     return nf2().format(Number(x));
   }
-  function fmtUnitPrice(x) { return fmtNum0(x); }
-  function fmtTotalWan(x) { return fmtNum2(x); }
+
+  const fmtUnitPrice = (x) => fmtNum0(x);
+  const fmtTotalWan = (x) => fmtNum2(x);
+
+  function escapeHtml(s) {
+    const str = String(s ?? "");
+    return str
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+  }
 
   function toast(msg) {
     if (!els.toast) return;
@@ -277,21 +322,26 @@
 
   function qs(params) {
     const usp = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => {
+    for (const [k, v] of Object.entries(params)) {
       if (v !== undefined && v !== null && String(v).trim().length > 0) usp.set(k, String(v).trim());
-    });
+    }
     return usp.toString();
   }
 
-  async function apiGet(path, params = {}) {
+  async function apiGet(path, params = {}, { signal } = {}) {
     const url = `${path}${Object.keys(params).length ? `?${qs(params)}` : ""}`;
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
+    const res = await fetch(url, { headers: { Accept: "application/json" }, signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
     return await res.json();
   }
 
   function setMeta(text) {
     if (els.meta) els.meta.textContent = text;
+  }
+
+  function setListState(text) {
+    if (!els.listState) return;
+    els.listState.textContent = text || "";
   }
 
   function updatePager() {
@@ -305,7 +355,7 @@
     const html = Array.from({ length: n })
       .map(() => {
         const tds = Array.from({ length: cols }).map(() => `<td><div class="skeleton"></div></td>`).join("");
-        return `<tr>${tds}</tr>`;
+        return `<tr aria-hidden="true">${tds}</tr>`;
       })
       .join("");
     if (els.tbody) els.tbody.innerHTML = html;
@@ -327,53 +377,167 @@
   };
 
   const DETAIL_FIELDS = [
-    "community", "bizcircle", "layout", "area_sqm", "unit_price_yuan_sqm", "total_price_wan",
-    "orientation", "building_year", "floor", "deal_date", "crawl_time", "detail_url"
+    "community",
+    "bizcircle",
+    "layout",
+    "area_sqm",
+    "unit_price_yuan_sqm",
+    "total_price_wan",
+    "orientation",
+    "building_year",
+    "floor",
+    "deal_date",
+    "crawl_time",
+    "detail_url",
   ];
 
   function renderTable(items) {
     if (!els.tbody) return;
-    if (!items || !items.length) {
-      els.tbody.innerHTML =
-        `<tr><td colspan="8" style="padding:16px;color:rgba(234,240,255,.65);">${state.locale === "hant" ? "暫無資料" : "暂无数据"}</td></tr>`;
+
+    const arr = Array.isArray(items) ? items : [];
+    if (!arr.length) {
+      els.tbody.innerHTML = `<tr><td colspan="8" style="padding:16px;color:rgba(234,240,255,.70);">${escapeHtml(
+        t("list.empty")
+      )}</td></tr>`;
+      setListState(t("list.empty"));
       return;
     }
 
-    els.tbody.innerHTML = items
+    const rows = arr
       .map((r) => {
         const payload = encodeURIComponent(JSON.stringify(r));
         const hasLink = !!r.detail_url;
+
+        const biz = fmt(r.bizcircle);
+        const com = fmt(r.community);
+        const lay = fmt(r.layout);
+        const date = fmt(r.deal_date);
+
+        const cell = (text, max = 280) => {
+          const s = text === "-" ? "-" : String(text);
+          const title = s === "-" ? "" : escapeHtml(s);
+          return `<span class="cell-trunc" style="max-width:${max}px" title="${title}">${escapeHtml(s)}</span>`;
+        };
+
         const linkBtn = hasLink
-          ? `<button class="btn icon" data-open="1" title="${state.locale === "hant" ? "開啟詳情連結" : "打开详情链接"}">↗</button>`
+          ? `<button class="btn icon open-link-btn" data-open="1" type="button" title="${escapeHtml(
+            state.locale === "hant" ? "開啟詳情連結" : "打开详情链接"
+          )}" aria-label="${escapeHtml(state.locale === "hant" ? "開啟詳情連結" : "打开详情链接")}">↗</button>`
           : `<span style="color:rgba(234,240,255,.45)">-</span>`;
 
         return `
-          <tr data-json="${payload}">
-            <td>${fmt(r.bizcircle)}</td>
-            <td>${fmt(r.community)}</td>
-            <td>${fmt(r.layout)}</td>
-            <td class="num">${fmtNum2(r.area_sqm)}</td>
-            <td class="num">${fmtUnitPrice(r.unit_price_yuan_sqm)}</td>
-            <td class="num">${fmtTotalWan(r.total_price_wan)}</td>
-            <td>${fmt(r.deal_date)}</td>
-            <td>${linkBtn}</td>
+          <tr tabindex="0" data-json="${payload}">
+            <td>${cell(biz, 180)}</td>
+            <td>${cell(com, 320)}</td>
+            <td>${cell(lay, 180)}</td>
+            <td class="num">${escapeHtml(fmtNum2(r.area_sqm))}</td>
+            <td class="num">${escapeHtml(fmtUnitPrice(r.unit_price_yuan_sqm))}</td>
+            <td class="num">${escapeHtml(fmtTotalWan(r.total_price_wan))}</td>
+            <td>${cell(date, 140)}</td>
+            <td style="text-align:center">${linkBtn}</td>
           </tr>`;
       })
       .join("");
+
+    els.tbody.innerHTML = rows;
+    setListState("");
   }
 
-  function closeModal() {
+  function getFocusableWithin(root) {
+    if (!root) return [];
+    const nodes = root.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    return Array.from(nodes).filter((el) => {
+      if (el.hasAttribute("disabled")) return false;
+      const style = window.getComputedStyle(el);
+      return style.visibility !== "hidden" && style.display !== "none";
+    });
+  }
+
+  const pageInertTargets = [els.navbar, els.main, els.about].filter(Boolean);
+  function setPageInert(inert) {
+    for (const el of pageInertTargets) {
+      if (inert) {
+        el.setAttribute("aria-hidden", "true");
+        try {
+          el.inert = true;
+        } catch {
+          /* ignore */
+        }
+      } else {
+        el.removeAttribute("aria-hidden");
+        try {
+          el.inert = false;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  function closeModal({ restoreFocus = true } = {}) {
     if (!els.modal) return;
+    state.modalOpen = false;
+
     els.modal.classList.add("hidden");
     els.modal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+    setPageInert(false);
+
+    document.removeEventListener("keydown", onModalKeydown, true);
+
+    if (restoreFocus && state.lastFocus && typeof state.lastFocus.focus === "function") {
+      try {
+        state.lastFocus.focus();
+      } catch {
+        // ignore
+      }
+    }
+    state.lastFocus = null;
   }
 
-  function openModal(obj) {
-    if (!els.modal || !els.modalJson) return;
+  function onModalKeydown(e) {
+    if (!state.modalOpen) return;
+
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeModal();
+      return;
+    }
+
+    if (e.key !== "Tab") return;
+
+    const focusables = getFocusableWithin(els.modalCard);
+    if (!focusables.length) {
+      e.preventDefault();
+      return;
+    }
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    if (e.shiftKey) {
+      if (document.activeElement === first || !els.modalCard.contains(document.activeElement)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
+  function openModal(obj, { focusFrom } = {}) {
+    if (!els.modal || !els.modalJson || !els.modalCard) return;
+
+    state.lastFocus = focusFrom || document.activeElement;
 
     const lines = [];
     for (const k of DETAIL_FIELDS) {
-      const label = (LABELS[k] ? LABELS[k]() : k);
+      const label = LABELS[k] ? LABELS[k]() : k;
       let v = obj?.[k];
 
       if (k === "unit_price_yuan_sqm") {
@@ -391,12 +555,49 @@
         lines.push(`${label}：${v} ㎡`);
         continue;
       }
+
       lines.push(`${label}：${v === null || v === undefined || v === "" ? "-" : String(v)}`);
     }
 
     els.modalJson.textContent = lines.join("\n");
+
+    setNavOpen(false);
+
     els.modal.classList.remove("hidden");
     els.modal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("modal-open");
+    setPageInert(true);
+    state.modalOpen = true;
+
+    document.addEventListener("keydown", onModalKeydown, true);
+
+    // focus into modal
+    const toFocus = els.modalClose || els.modalCard;
+    requestAnimationFrame(() => {
+      try {
+        toFocus.focus();
+      } catch {
+        // ignore
+      }
+    });
+  }
+
+  function setNavOpen(open) {
+    state.navOpen = !!open;
+    document.body.classList.toggle("nav-open", state.navOpen);
+    if (els.navBurger) els.navBurger.setAttribute("aria-expanded", state.navOpen ? "true" : "false");
+    if (els.navOverlay) els.navOverlay.setAttribute("aria-hidden", state.navOpen ? "false" : "true");
+
+    if (state.navOpen) {
+      // Move focus into menu on small screens for accessibility
+      const isMobileMenu = window.innerWidth <= 1200;
+      if (isMobileMenu) {
+        requestAnimationFrame(() => {
+          const firstLink = els.navCenter?.querySelector("a");
+          if (firstLink && typeof firstLink.focus === "function") firstLink.focus();
+        });
+      }
+    }
   }
 
   function getQuery() {
@@ -415,7 +616,9 @@
     const h = await apiGet("/api/health");
     state.cities = h.cities || [];
 
-    const optionsHtml = state.cities.map((c) => `<option value="${c}">${cityName(c)}</option>`).join("");
+    const optionsHtml = state.cities
+      .map((c) => `<option value="${escapeHtml(c)}">${escapeHtml(cityName(c))}</option>`)
+      .join("");
     if (els.fCity) els.fCity.innerHTML = optionsHtml || `<option value="">（无数据）</option>`;
     if (els.navCity) els.navCity.innerHTML = optionsHtml || `<option value="">（无）</option>`;
 
@@ -434,11 +637,16 @@
 
   function clearSpark() {
     if (els.spark) els.spark.innerHTML = "";
+    state.sparkXY = [];
+    state.sparkPoints = [];
   }
 
   function sortTrendPoints(points) {
     if (!Array.isArray(points)) return [];
-    return points.slice().filter(p => p && p.month).sort((a, b) => String(a.month).localeCompare(String(b.month)));
+    return points
+      .slice()
+      .filter((p) => p && p.month)
+      .sort((a, b) => String(a.month).localeCompare(String(b.month)));
   }
 
   function filterTrendPoints(points, cityKey) {
@@ -469,7 +677,9 @@
       const c2x = p2.x - (p3.x - p1.x) / 6;
       const c2y = p2.y - (p3.y - p1.y) / 6;
 
-      d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+      d += ` C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ${p2.x.toFixed(
+        1
+      )} ${p2.y.toFixed(1)}`;
     }
     return d;
   }
@@ -477,13 +687,19 @@
   function renderSpark(points) {
     if (!els.spark || !els.sparkEmpty) return;
     els.spark.innerHTML = "";
+    state.sparkXY = [];
+    state.sparkPoints = [];
 
     if (!points || points.length < 2) {
       els.sparkEmpty.style.display = "grid";
+      if (els.sparkTip) els.sparkTip.classList.remove("show");
+      if (els.sparkCursor) els.sparkCursor.style.opacity = "0";
       return;
     }
 
-    const values = points.map(p => Number(p.avg_unit_price_yuan_sqm)).filter(v => Number.isFinite(v));
+    const values = points
+      .map((p) => Number(p.avg_unit_price_yuan_sqm))
+      .filter((v) => Number.isFinite(v));
     if (values.length < 2) {
       els.sparkEmpty.style.display = "grid";
       return;
@@ -491,41 +707,55 @@
 
     els.sparkEmpty.style.display = "none";
 
-    const w = 600, h = 220;
-    const padX = 18, padY = 18;
+    const w = 600,
+      h = 220;
+    const padX = 18,
+      padY = 18;
     const innerW = w - padX * 2;
     const innerH = h - padY * 2;
 
     let minV = Math.min(...values);
     let maxV = Math.max(...values);
     const span = Math.max(1, maxV - minV);
-    minV = minV - span * 0.10;
-    maxV = maxV + span * 0.10;
+    minV = minV - span * 0.1;
+    maxV = maxV + span * 0.1;
 
     const toX = (i) => padX + (i * innerW) / (points.length - 1);
-    const toY = (v) => (h - padY) - ((v - minV) * innerH) / Math.max(1e-6, (maxV - minV));
+    const toY = (v) => h - padY - ((v - minV) * innerH) / Math.max(1e-6, maxV - minV);
 
     const xy = points.map((p, i) => {
       const v = Number(p.avg_unit_price_yuan_sqm);
       const vv = Number.isFinite(v) ? v : values[0];
-      return { x: toX(i), y: toY(vv), v: vv, month: p.month };
+      return { x: toX(i), y: toY(vv), v: vv, month: p.month, count: p.count ?? 0 };
     });
 
+    state.sparkXY = xy;
+    state.sparkPoints = points;
+
     const dLine = smoothPath(xy);
-    const dFill = `${dLine} L ${xy[xy.length - 1].x.toFixed(1)} ${(h - padY).toFixed(1)} L ${xy[0].x.toFixed(1)} ${(h - padY).toFixed(1)} Z`;
+    const dFill = `${dLine} L ${xy[xy.length - 1].x.toFixed(1)} ${(h - padY).toFixed(
+      1
+    )} L ${xy[0].x.toFixed(1)} ${(h - padY).toFixed(1)} Z`;
 
     const ticks = [];
     ticks.push({ i: 0, label: xy[0].month });
-    if (xy.length > 12) ticks.push({ i: Math.floor((xy.length - 1) / 2), label: xy[Math.floor((xy.length - 1) / 2)].month });
+    if (xy.length > 12) {
+      const mid = Math.floor((xy.length - 1) / 2);
+      ticks.push({ i: mid, label: xy[mid].month });
+    }
     ticks.push({ i: xy.length - 1, label: xy[xy.length - 1].month });
 
-    const gridLines = Array.from({ length: 4 }).map((_, i) => {
-      const y = padY + (i * innerH) / 3;
-      return `<line x1="${padX}" y1="${y.toFixed(1)}" x2="${(w - padX).toFixed(1)}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.10)" stroke-width="1"/>`;
-    }).join("");
+    const gridLines = Array.from({ length: 4 })
+      .map((_, i) => {
+        const y = padY + (i * innerH) / 3;
+        return `<line x1="${padX}" y1="${y.toFixed(1)}" x2="${(w - padX).toFixed(
+          1
+        )}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,.10)" stroke-width="1"/>`;
+      })
+      .join("");
 
-    const yMaxLabel = fmtNum0(maxV);
-    const yMinLabel = fmtNum0(minV);
+    const yMaxLabel = escapeHtml(fmtNum0(maxV));
+    const yMinLabel = escapeHtml(fmtNum0(minV));
 
     els.spark.innerHTML = `
     <defs>
@@ -548,12 +778,23 @@
     <path d="${dFill}" fill="url(#gFill)"></path>
     <path d="${dLine}" fill="none" stroke="url(#gLine)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"></path>
 
-    ${xy.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="rgba(234,240,255,.92)" opacity=".9"></circle>`).join("")}
+    ${xy
+        .map(
+          (p) =>
+            `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.2" fill="rgba(234,240,255,.92)" opacity=".9"><title>${escapeHtml(
+              `${p.month} · ${fmtUnitPrice(p.v)} ${t("trend.unit_suffix")}`
+            )}</title></circle>`
+        )
+        .join("")}
 
-    ${ticks.map(tk => {
-      const x = toX(tk.i);
-      return `<text x="${x.toFixed(1)}" y="${(h - 4).toFixed(1)}" text-anchor="middle" font-size="12" fill="rgba(234,240,255,.55)">${tk.label}</text>`;
-    }).join("")}
+    ${ticks
+        .map((tk) => {
+          const x = toX(tk.i);
+          return `<text x="${x.toFixed(1)}" y="${(h - 4).toFixed(
+            1
+          )}" text-anchor="middle" font-size="12" fill="rgba(234,240,255,.55)">${escapeHtml(tk.label)}</text>`;
+        })
+        .join("")}
   `;
   }
 
@@ -578,19 +819,81 @@
         return `
         <li>
           <div>
-            <div><b>${p.month}</b> · <span style="color:rgba(234,240,255,.68)">${t("trend.samples")}</span> ${p.count}</div>
-            <div style="color:rgba(234,240,255,.68)">${t("trend.avg_total", { v: avgTotal })}</div>
+            <div><b>${escapeHtml(p.month)}</b> · <span style="color:rgba(234,240,255,.68)">${escapeHtml(
+          t("trend.samples")
+        )}</span> ${escapeHtml(String(p.count ?? 0))}</div>
+            <div style="color:rgba(234,240,255,.68)">${escapeHtml(t("trend.avg_total", { v: avgTotal }))}</div>
           </div>
           <div style="text-align:right">
-            <div><b>${avgUnit}</b></div>
-            <div style="color:rgba(234,240,255,.68)">${unitSuffix}</div>
+            <div><b>${escapeHtml(avgUnit)}</b></div>
+            <div style="color:rgba(234,240,255,.68)">${escapeHtml(unitSuffix)}</div>
           </div>
         </li>`;
       })
       .join("");
   }
 
-  // ===== news（房天下热榜） =====
+  function updateSparkHover(clientX) {
+    if (!els.sparkWrap || !els.sparkTip || !els.sparkCursor) return;
+    const xy = state.sparkXY;
+    if (!xy || xy.length < 2) return;
+
+    const rect = els.sparkWrap.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+    const idx = Math.max(0, Math.min(xy.length - 1, Math.round((x / rect.width) * (xy.length - 1))));
+    const p = xy[idx];
+
+    const suffix = t("trend.unit_suffix");
+    const tipText = t("spark.tip", {
+      month: p.month,
+      unit: fmtUnitPrice(p.v),
+      suffix,
+      count: p.count ?? 0,
+    });
+
+    els.sparkTip.textContent = tipText;
+    els.sparkTip.classList.add("show");
+
+    const leftPx = Math.round((idx / (xy.length - 1)) * rect.width);
+    els.sparkCursor.style.left = `${leftPx}px`;
+    els.sparkCursor.style.opacity = "1";
+
+    // tooltip position (keep within bounds)
+    const pad = 14;
+    const tipRect = els.sparkTip.getBoundingClientRect();
+    const preferLeft = leftPx + pad;
+    const maxLeft = rect.width - tipRect.width - pad;
+    const finalLeft = Math.max(pad, Math.min(maxLeft, preferLeft));
+
+    els.sparkTip.style.left = `${finalLeft}px`;
+  }
+
+  function bindSparkHover() {
+    if (!els.sparkWrap) return;
+
+    // bind once
+    if (els.sparkWrap.dataset.hoverBound === "1") return;
+    els.sparkWrap.dataset.hoverBound = "1";
+
+    const onMove = (ev) => {
+      if (!state.sparkXY || state.sparkXY.length < 2) return;
+      const x = ev.touches?.[0]?.clientX ?? ev.clientX;
+      if (!Number.isFinite(x)) return;
+      updateSparkHover(x);
+    };
+
+    const onLeave = () => {
+      if (els.sparkTip) els.sparkTip.classList.remove("show");
+      if (els.sparkCursor) els.sparkCursor.style.opacity = "0";
+    };
+
+    els.sparkWrap.addEventListener("mousemove", onMove);
+    els.sparkWrap.addEventListener("touchmove", onMove, { passive: true });
+    els.sparkWrap.addEventListener("mouseleave", onLeave);
+    els.sparkWrap.addEventListener("touchend", onLeave);
+  }
+
+  // ===== news =====
   function fmtLocalTime(iso) {
     if (!iso) return "-";
     try {
@@ -602,12 +905,13 @@
     }
   }
 
-  function setNewsMeta(cityKey, isoTime) {
+  function setNewsMeta(cityKey, isoTime, { sourceUrl = "" } = {}) {
     if (!els.newsMeta) return;
     els.newsMeta.textContent = t("news.meta", {
       city: cityName(cityKey),
       time: fmtLocalTime(isoTime),
     });
+    els.newsMeta.title = sourceUrl || "";
   }
 
   function renderNewsSkeleton(n = 6) {
@@ -619,7 +923,7 @@
         (_, i) => `
         <li class="news-item" aria-hidden="true">
           <div class="news-rank">${i + 1}</div>
-          <div style="flex:1">
+          <div style="flex:1;min-width:0">
             <div class="skeleton" style="height:14px;width:92%"></div>
             <div class="skeleton" style="height:12px;width:58%;margin-top:8px"></div>
           </div>
@@ -635,7 +939,7 @@
     if (!arr.length) {
       els.newsList.innerHTML = "";
       if (els.newsEmpty) els.newsEmpty.style.display = "grid";
-      setNewsMeta(cityKey, fetchedAt);
+      setNewsMeta(cityKey, fetchedAt, { sourceUrl });
       return;
     }
 
@@ -650,20 +954,18 @@
 
         return `
           <li class="news-item">
-            <div class="news-rank">${rank}</div>
+            <div class="news-rank">${escapeHtml(rank)}</div>
             <div style="flex:1;min-width:0">
-              <a class="news-title" href="${url}" target="_blank" rel="noopener noreferrer">${title}</a>
-              ${sub ? `<div class="news-sub">${sub}</div>` : ""}
+              <a class="news-title" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(
+          title
+        )}</a>
+              ${sub ? `<div class="news-sub">${escapeHtml(sub)}</div>` : ""}
             </div>
           </li>`;
       })
       .join("");
 
-    setNewsMeta(cityKey, fetchedAt);
-    if (sourceUrl && els.newsMeta) {
-      // 在 meta 末尾附上来源 URL（可复制）
-      els.newsMeta.title = sourceUrl;
-    }
+    setNewsMeta(cityKey, fetchedAt, { sourceUrl });
   }
 
   async function loadNews(cityKey, { force = false } = {}) {
@@ -674,21 +976,24 @@
     const fresh = now - (state.newsLastFetchedAt || 0) < 5 * 60 * 1000;
     if (!force && city === state.newsCity && fresh) return;
 
+    if (state.ctrlNews) state.ctrlNews.abort();
+    state.ctrlNews = new AbortController();
+
     state.newsLoading = true;
     if (els.btnNewsRefresh) els.btnNewsRefresh.disabled = true;
     renderNewsSkeleton(6);
     setNewsMeta(city, new Date().toISOString());
 
     try {
-      const data = await apiGet("/api/fang_news", { city, limit: 10 });
+      const data = await apiGet("/api/fang_news", { city, limit: 10 }, { signal: state.ctrlNews.signal });
       state.newsCity = city;
       state.newsLastFetchedAt = Date.now();
       renderNews(data.items || [], city, data.fetched_at, data.source_url);
     } catch (e) {
       state.newsCity = city;
       state.newsLastFetchedAt = Date.now();
-      renderNews([], city, new Date().toISOString());
-      toast(`${t("toast.news_fail")}：${e.message}`);
+      renderNews([], city, new Date().toISOString(), "");
+      if (e?.name !== "AbortError") toast(`${t("toast.news_fail")}：${e.message}`);
     } finally {
       state.newsLoading = false;
       if (els.btnNewsRefresh) els.btnNewsRefresh.disabled = false;
@@ -705,172 +1010,252 @@
     applyLocaleByCity(q.city);
     if (els.navCity && els.navCity.value !== q.city) els.navCity.value = q.city;
 
+    // cancel previous
+    if (state.ctrlList) state.ctrlList.abort();
+    if (state.ctrlTrend) state.ctrlTrend.abort();
+    state.ctrlList = new AbortController();
+    state.ctrlTrend = new AbortController();
+
     state.loading = true;
+    if (els.btnSearch) els.btnSearch.disabled = true;
     updatePager();
+
     renderSkeleton(Math.min(state.pageSize, 12));
     setMeta(t("meta.loading"));
+    setListState(t("list.loading"));
 
     try {
-      const data = await apiGet("/api/listings", q);
+      const data = await apiGet("/api/listings", q, { signal: state.ctrlList.signal });
       const items = data.items || [];
       state.total = data.total || 0;
       state.maxPage = Math.max(1, Math.ceil(state.total / state.pageSize));
       renderTable(items);
       setMeta(t("meta.done", { n: state.total }));
+
+      if (items.length && els.tableWrap) {
+        // 翻页后将滚动容器回到顶部，防止“看不到新页内容”
+        els.tableWrap.scrollTop = 0;
+      }
     } catch (e) {
+      if (e?.name === "AbortError") return;
+
       if (els.tbody) {
-        els.tbody.innerHTML =
-          `<tr><td colspan="8" style="padding:16px;color:#ffb3c7;">${t("meta.fail")}：${e.message}</td></tr>`;
+        els.tbody.innerHTML = `<tr><td colspan="8" style="padding:16px;color:#ffb3c7;">${escapeHtml(
+          t("meta.fail")
+        )}：${escapeHtml(e.message)}</td></tr>`;
       }
       setMeta(t("meta.fail"));
+      setListState(`${t("meta.fail")}：${e.message}`);
       toast(e.message);
     } finally {
       state.loading = false;
+      if (els.btnSearch) els.btnSearch.disabled = false;
       updatePager();
     }
 
+    // trend
     try {
-      const tdata = await apiGet("/api/price_trend", {
-        city: q.city,
-        region: q.region,
-        bizcircle: q.bizcircle,
-        community: q.community,
-        layout: q.layout,
-      });
+      const tdata = await apiGet(
+        "/api/price_trend",
+        {
+          city: q.city,
+          region: q.region,
+          bizcircle: q.bizcircle,
+          community: q.community,
+          layout: q.layout,
+        },
+        { signal: state.ctrlTrend.signal }
+      );
+
       const pointsAll = tdata.points || [];
       const points = filterTrendPoints(pointsAll, q.city);
       updateTrendDesc(q.city, points);
       renderSpark(points);
       renderTrendList(points, q.city);
-    } catch {
+      bindSparkHover();
+    } catch (e) {
+      if (e?.name === "AbortError") return;
       updateTrendDesc(q.city, []);
       clearSpark();
       renderTrendList([], q.city);
     }
 
-    // 新闻热榜：只在城市变化/用户强制刷新时才会真的去请求（loadNews 内有节流）
+    // news (节流在 loadNews 内)
     loadNews(q.city).catch(() => void 0);
   }
 
   // ===== 事件绑定 =====
-  els.btnSearch?.addEventListener("click", () => {
-    state.page = 1;
-    loadListingsAndTrend();
-  });
+  function bindEvents() {
+    // filters: click search
+    els.btnSearch?.addEventListener("click", () => {
+      state.page = 1;
+      loadListingsAndTrend();
+    });
 
-  els.btnReset?.addEventListener("click", () => {
-    if (els.fRegion) els.fRegion.value = "";
-    if (els.fBizcircle) els.fBizcircle.value = "";
-    if (els.fCommunity) els.fCommunity.value = "";
-    if (els.fLayout) els.fLayout.value = "";
-    state.page = 1;
-    toast(t("toast.reset"));
-    loadListingsAndTrend();
-  });
+    // Enter 快捷查询（输入框内）
+    els.filtersForm?.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      const tag = (e.target?.tagName || "").toUpperCase();
+      if (tag === "SELECT") return;
+      if (e.isComposing) return;
+      e.preventDefault();
+      state.page = 1;
+      loadListingsAndTrend();
+    });
 
-  els.btnNewsRefresh?.addEventListener("click", () => {
-    loadNews(els.fCity?.value, { force: true });
-  });
+    els.btnReset?.addEventListener("click", () => {
+      if (els.fRegion) els.fRegion.value = "";
+      if (els.fBizcircle) els.fBizcircle.value = "";
+      if (els.fCommunity) els.fCommunity.value = "";
+      if (els.fLayout) els.fLayout.value = "";
+      state.page = 1;
+      toast(t("toast.reset"));
+      if (els.fRegion) els.fRegion.focus();
+      loadListingsAndTrend();
+    });
 
-  els.btnPrev?.addEventListener("click", () => {
-    if (state.page <= 1) return;
-    state.page -= 1;
-    loadListingsAndTrend();
-  });
+    els.btnNewsRefresh?.addEventListener("click", () => {
+      loadNews(els.fCity?.value, { force: true });
+    });
 
-  els.btnNext?.addEventListener("click", () => {
-    if (state.page >= state.maxPage) return;
-    state.page += 1;
-    loadListingsAndTrend();
-  });
+    els.btnPrev?.addEventListener("click", () => {
+      if (state.page <= 1) return;
+      state.page -= 1;
+      loadListingsAndTrend();
+    });
 
-  els.pageSize?.addEventListener("change", () => {
-    state.pageSize = parseInt(els.pageSize.value, 10) || 20;
-    state.page = 1;
-    loadListingsAndTrend();
-  });
+    els.btnNext?.addEventListener("click", () => {
+      if (state.page >= state.maxPage) return;
+      state.page += 1;
+      loadListingsAndTrend();
+    });
 
-  // 行点击：默认打开详情；点“↗”打开链接
-  els.tbody?.addEventListener("click", (ev) => {
-    const btn = ev.target.closest("[data-open='1']");
-    const tr = ev.target.closest("tr");
-    if (!tr || !tr.dataset.json) return;
+    els.pageSize?.addEventListener("change", () => {
+      state.pageSize = parseInt(els.pageSize.value, 10) || 20;
+      state.page = 1;
+      loadListingsAndTrend();
+    });
 
-    let obj;
-    try {
-      obj = JSON.parse(decodeURIComponent(tr.dataset.json));
-    } catch {
-      toast(t("toast.parse_fail"));
-      return;
-    }
+    // table: click row / open link
+    const handleRowOpen = (tr, { openLink = false } = {}) => {
+      if (!tr || !tr.dataset.json) return;
 
-    if (btn) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      const url = obj?.detail_url;
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      else toast(t("toast.no_link"));
-      return;
-    }
+      let obj;
+      try {
+        obj = JSON.parse(decodeURIComponent(tr.dataset.json));
+      } catch {
+        toast(t("toast.parse_fail"));
+        return;
+      }
 
-    openModal(obj);
-  });
+      if (openLink) {
+        const url = obj?.detail_url;
+        if (url) window.open(url, "_blank", "noopener,noreferrer");
+        else toast(t("toast.no_link"));
+        return;
+      }
 
-  els.modalClose?.addEventListener("click", closeModal);
-  els.modalBackdrop?.addEventListener("click", closeModal);
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeModal();
-  });
+      openModal(obj, { focusFrom: tr });
+    };
 
-  // navbar：城市切换/刷新/移动端菜单
-  els.navCity?.addEventListener("change", () => {
-    if (els.fCity) els.fCity.value = els.navCity.value;
-    state.page = 1;
-    loadListingsAndTrend();
-    document.body.classList.remove("nav-open");
-  });
+    els.tbody?.addEventListener("click", (ev) => {
+      const btn = ev.target.closest("[data-open='1']");
+      const tr = ev.target.closest("tr");
+      if (!tr) return;
 
-  els.navRefresh?.addEventListener("click", () => {
-    state.page = 1;
-    loadListingsAndTrend();
-    loadNews(els.navCity?.value || els.fCity?.value, { force: true });
-    document.body.classList.remove("nav-open");
-  });
+      if (btn) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        handleRowOpen(tr, { openLink: true });
+        return;
+      }
 
-  els.navBurger?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    document.body.classList.toggle("nav-open");
-  });
+      handleRowOpen(tr, { openLink: false });
+    });
 
-  // 点击导航链接后关闭移动菜单
-  els.navCenter?.addEventListener("click", (e) => {
-    const a = e.target.closest("a");
-    if (!a) return;
-    document.body.classList.remove("nav-open");
-  });
+    // keyboard open (only when focus is on the row itself, not inner buttons/links)
+    els.tbody?.addEventListener("keydown", (ev) => {
+      const tag = (ev.target?.tagName || "").toUpperCase();
+      if (tag === "BUTTON" || tag === "A" || tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      if (ev.target?.closest?.("[data-open='1']")) return;
 
-  // 点击页面空白处自动关闭菜单（提升“三杠”体验）
-  document.addEventListener("click", (e) => {
-    if (!document.body.classList.contains("nav-open")) return;
-    const insideNavbar = els.navbar && els.navbar.contains(e.target);
-    if (!insideNavbar) document.body.classList.remove("nav-open");
-  });
+      const tr = ev.target.closest("tr");
+      if (!tr) return;
 
-  // 变宽时自动收起（避免菜单卡住）
-  window.addEventListener("resize", () => {
-    if (window.innerWidth > 1200) document.body.classList.remove("nav-open");
-  });
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        handleRowOpen(tr, { openLink: false });
+      }
+    });
 
-  // 切换筛选城市时同步 navbar
-  els.fCity?.addEventListener("change", () => {
-    if (els.navCity) els.navCity.value = els.fCity.value;
-    state.page = 1;
-    loadListingsAndTrend();
-  });
+    // modal close
+    els.modalClose?.addEventListener("click", () => closeModal());
+    els.modalBackdrop?.addEventListener("click", () => closeModal());
+
+    // navbar city switch
+    els.navCity?.addEventListener("change", () => {
+      if (els.fCity) els.fCity.value = els.navCity.value;
+      state.page = 1;
+      loadListingsAndTrend();
+      setNavOpen(false);
+    });
+
+    // navbar refresh
+    els.navRefresh?.addEventListener("click", () => {
+      state.page = 1;
+      loadListingsAndTrend();
+      loadNews(els.navCity?.value || els.fCity?.value, { force: true });
+      setNavOpen(false);
+    });
+
+    // burger
+    els.navBurger?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setNavOpen(!state.navOpen);
+    });
+
+    // overlay click
+    els.navOverlay?.addEventListener("click", () => {
+      setNavOpen(false);
+    });
+
+    // click nav link closes
+    els.navCenter?.addEventListener("click", (e) => {
+      const a = e.target.closest("a");
+      if (!a) return;
+      setNavOpen(false);
+    });
+
+    // click outside navbar closes (desktop / fallback)
+    document.addEventListener("click", (e) => {
+      if (!state.navOpen) return;
+      const insideNavbar = els.navbar && els.navbar.contains(e.target);
+      if (!insideNavbar) setNavOpen(false);
+    });
+
+    window.addEventListener("resize", () => {
+      if (window.innerWidth > 1200) setNavOpen(false);
+    });
+
+    // filter city -> sync nav
+    els.fCity?.addEventListener("change", () => {
+      if (els.navCity) els.navCity.value = els.fCity.value;
+      state.page = 1;
+      loadListingsAndTrend();
+    });
+
+    // Esc: close menu if open (modal 自己处理)
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !state.modalOpen && state.navOpen) setNavOpen(false);
+    });
+  }
 
   // ===== 初始化 =====
   (async function init() {
     renderSkeleton(10);
+    setListState(t("list.loading"));
+    bindEvents();
+
     try {
       await loadHealthAndCities();
       setMeta(t("meta.ready"));
@@ -878,6 +1263,7 @@
     } catch (e) {
       if (els.badgeApi) els.badgeApi.textContent = t("badge.api_bad");
       toast(e.message);
+      setListState(`${t("meta.fail")}：${e.message}`);
     } finally {
       updatePager();
     }

@@ -1,29 +1,129 @@
-/* ===== HPQAQ index 页面样式（导航 + 三列布局） ===== */
+/* ===== HPQAQ index 页面样式（可用性 + 舒适度 + 可访问性 增量优化） ===== */
+
 :root {
+    /* Layout */
     --page-max: 1320px;
+    --sidebar: 440px;
+
+    /* Spacing scale (4px base) */
+    --s1: 4px;
+    --s2: 8px;
+    --s3: 12px;
+    --s4: 16px;
+    --s5: 20px;
+    --s6: 24px;
+    --s7: 32px;
+    --s8: 40px;
+
+    /* Radius */
+    --r-sm: 12px;
+    --r-md: 16px;
+    --r-lg: 20px;
+
+    /* Focus */
+    --focus-outline: rgba(0, 213, 255, .65);
+    --focus-ring: 0 0 0 3px rgba(0, 213, 255, .16);
+
+    /* Table */
+    --row-h: 44px;
 }
 
-/* ===== 顶部导航 ===== */
+/* ===== Utilities ===== */
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.skip-link {
+    position: absolute;
+    left: var(--s4);
+    top: var(--s4);
+    z-index: 10001;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    background: rgba(10, 14, 30, .92);
+    color: rgba(234, 240, 255, .92);
+    text-decoration: none;
+    transform: translateY(-160%);
+}
+
+.skip-link:focus {
+    transform: translateY(0);
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+a {
+    color: inherit;
+}
+
+:focus-visible {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: 2px;
+}
+
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+}
+
+.btn:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+/* 背景 blob 位置（之前缺少定位，会导致三个 blob 叠在左上角） */
+.blob.b1 {
+    top: -160px;
+    left: -180px;
+    background: radial-gradient(circle at 30% 30%, rgba(121, 97, 255, .55), transparent 60%);
+}
+
+.blob.b2 {
+    top: 12vh;
+    right: -220px;
+    background: radial-gradient(circle at 30% 30%, rgba(0, 213, 255, .45), transparent 62%);
+}
+
+.blob.b3 {
+    bottom: -220px;
+    left: 28vw;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 72, 180, .38), transparent 62%);
+    opacity: .42;
+}
+
+/* ===== Top Navbar ===== */
+
 .navbar {
     position: sticky;
     top: 0;
-    z-index: 200;
+    z-index: 220;
+    backdrop-filter: blur(14px);
+    background: linear-gradient(180deg, rgba(6, 8, 16, .82), rgba(6, 8, 16, .38));
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.nav-inner {
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: 14px var(--s4);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 14px;
-
-    /* 让 header 左右边距和主内容一致，从而“整体居中” */
-    padding: 14px 16px;
-    padding-left: max(16px, calc((100vw - var(--page-max)) / 2 + 16px));
-    padding-right: max(16px, calc((100vw - var(--page-max)) / 2 + 16px));
-
-    backdrop-filter: blur(14px);
-    background: linear-gradient(180deg, rgba(6, 8, 16, .78), rgba(6, 8, 16, .38));
-    border-bottom: 1px solid rgba(255, 255, 255, .08);
-
-    overflow: visible;
-    /* 允许移动端下拉菜单显示 */
+    gap: var(--s4);
 }
 
 .nav-brand {
@@ -31,13 +131,13 @@
     align-items: center;
     gap: 10px;
     text-decoration: none;
-    color: var(--text);
+    color: rgba(234, 240, 255, .95);
 }
 
 .nav-logo {
-    width: 80px;
-    height: 52px;
-    border-radius: 18px;
+    width: 78px;
+    height: 50px;
+    border-radius: var(--r-md);
     display: grid;
     place-items: center;
     border: 1px solid rgba(255, 255, 255, .12);
@@ -59,11 +159,10 @@
     letter-spacing: .6px;
 }
 
-/* 中间导航（桌面端） */
 .nav-center {
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 10px 12px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, .10);
@@ -86,7 +185,6 @@
     color: rgba(234, 240, 255, .96);
 }
 
-/* 下划线扫光 */
 .nav-center a::after {
     content: "";
     position: absolute;
@@ -127,11 +225,12 @@
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, .12);
     background: rgba(255, 255, 255, .06);
+    white-space: nowrap;
 }
 
 .nav-select {
     padding: 10px 10px;
-    border-radius: 12px;
+    border-radius: var(--r-sm);
     border: 1px solid rgba(255, 255, 255, .12);
     background: rgba(0, 0, 0, .25);
     color: var(--text);
@@ -143,29 +242,43 @@
 
 .nav-burger {
     display: none;
-    /* 默认桌面端不显示 */
 }
 
-/* ===== 主布局：解决“查询条件下方大空白”的关键 ===== */
+.nav-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .45);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .18s ease;
+    z-index: 210;
+}
+
+body.nav-open .nav-overlay {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ===== Main Layout ===== */
+
 .layout {
     max-width: var(--page-max);
     margin: 18px auto 42px;
-    padding: 0 16px;
-
+    padding: 0 var(--s4);
     display: grid;
-    grid-template-columns: 1fr 420px;
-    grid-template-areas:
-        "filters results"
-        "trend   results"
-        "news    results";
-    /* 右侧列表跨两行 */
-    gap: 16px;
-
+    grid-template-columns: minmax(0, 1fr) var(--sidebar);
+    gap: var(--s4);
     align-items: start;
-    /* 防止左侧卡片被右侧高度撑到很高 */
 }
 
-/* 关键：允许 grid item 缩小，否则表格 min-content 会把整列撑开导致“偏左/溢出” */
+.col-left {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s4);
+    min-width: 0;
+}
+
 .filters,
 .results,
 .trend,
@@ -173,48 +286,41 @@
     min-width: 0;
 }
 
-.table-wrap {
-    min-width: 0;
-}
-
-.filters {
-    grid-area: filters;
-    align-self: start;
-}
-
-.results {
-    grid-area: results;
-    align-self: start;
-}
-
-.trend {
-    grid-area: trend;
-    align-self: start;
-}
-
-.news {
-    grid-area: news;
-    align-self: start;
-}
-
-@media (max-width:1100px) {
+@media (max-width: 1100px) {
     .layout {
         grid-template-columns: 1fr;
-        grid-template-areas:
-            "filters"
-            "results"
-            "trend"
-            "news";
+    }
+
+    /* 让 DOM 可保持可读顺序：视觉上把 results 放在 filters 后面 */
+    .col-left {
+        display: contents;
+    }
+
+    .filters {
+        order: 1;
+    }
+
+    .results {
+        order: 2;
+    }
+
+    .trend {
+        order: 3;
+    }
+
+    .news {
+        order: 4;
     }
 }
 
-/* ===== filters ===== */
+/* ===== Filters ===== */
+
 .filters .card-head {
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 12px;
-    padding: 16px 16px 10px;
+    gap: var(--s3);
+    padding: var(--s4) var(--s4) 10px;
 }
 
 .chip {
@@ -227,13 +333,13 @@
 }
 
 .form {
-    padding: 0 16px 6px;
+    padding: 0 var(--s4) var(--s2);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: var(--s3);
 }
 
-@media (max-width:720px) {
+@media (max-width: 720px) {
     .form {
         grid-template-columns: 1fr;
     }
@@ -242,7 +348,7 @@
 .field label {
     display: block;
     font-size: 12px;
-    color: rgba(234, 240, 255, .68);
+    color: rgba(234, 240, 255, .72);
     margin-bottom: 6px;
 }
 
@@ -250,37 +356,56 @@
 .field select {
     width: 100%;
     padding: 10px 10px;
-    border-radius: 12px;
-    transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+    border-radius: var(--r-sm);
+    transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, background .12s ease;
 }
 
 .field input:focus,
 .field select:focus {
     border-color: rgba(0, 213, 255, .55);
-    box-shadow: 0 0 0 3px rgba(0, 213, 255, .16);
+    box-shadow: var(--focus-ring);
     transform: translateY(-1px);
+}
+
+.field-help {
+    display: flex;
+    align-items: flex-end;
+}
+
+.help {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--r-sm);
+    border: 1px dashed rgba(255, 255, 255, .14);
+    color: rgba(234, 240, 255, .55);
+    font-size: 12px;
+    text-align: center;
+    user-select: none;
 }
 
 .actions {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 10px 16px 14px;
+    padding: 10px var(--s4) var(--s4);
+    flex-wrap: wrap;
 }
 
 .meta {
     margin-left: auto;
     font-size: 12px;
-    color: rgba(234, 240, 255, .68);
+    color: rgba(234, 240, 255, .70);
+    min-height: 18px;
 }
 
-/* ===== results ===== */
+/* ===== Results (List) ===== */
+
 .results-head {
-    padding: 16px 16px 10px;
+    padding: var(--s4) var(--s4) 10px;
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--s3);
 }
 
 .pager {
@@ -293,15 +418,24 @@
 
 .pager-text {
     font-size: 12px;
-    color: rgba(234, 240, 255, .68);
-    min-width: 90px;
+    color: rgba(234, 240, 255, .72);
+    min-width: 104px;
     text-align: center;
+}
+
+.list-state {
+    margin: 0 var(--s4);
+    padding: 0 0 10px;
+    font-size: 12px;
+    color: rgba(234, 240, 255, .70);
+    min-height: 18px;
 }
 
 .table-wrap {
     padding: 0 10px 10px;
     overflow: auto;
-    max-height: min(72vh, 640px);
+    max-height: min(72vh, 680px);
+    border-top: 1px solid rgba(255, 255, 255, .06);
 }
 
 .table {
@@ -309,13 +443,14 @@
     border-collapse: separate;
     border-spacing: 0;
     font-size: 13px;
+    line-height: 1.25;
 }
 
 .table thead th {
     position: sticky;
     top: 0;
     z-index: 2;
-    background: rgba(10, 14, 30, .72);
+    background: rgba(10, 14, 30, .78);
     backdrop-filter: blur(10px);
     border-bottom: 1px solid rgba(255, 255, 255, .10);
     text-align: left;
@@ -326,15 +461,13 @@
 .table td {
     padding: 10px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, .06);
+    vertical-align: middle;
     white-space: nowrap;
-}
-
-.table .num {
-    text-align: right;
 }
 
 .table tbody tr {
     cursor: pointer;
+    min-height: var(--row-h);
     transition: background .12s ease, transform .12s ease;
 }
 
@@ -343,19 +476,59 @@
     transform: translateY(-1px);
 }
 
-/* ===== trend ===== */
+.table tbody tr:focus-visible {
+    outline: 2px solid var(--focus-outline);
+    outline-offset: -2px;
+    background: rgba(0, 213, 255, .08);
+}
+
+.table .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.cell-trunc {
+    display: block;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+    .cell-trunc {
+        max-width: 180px;
+    }
+}
+
+.open-link-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+}
+
+/* ===== Trend ===== */
+
 .trend {
-    padding: 16px;
+    padding: var(--s4);
 }
 
 .spark-wrap {
     margin-top: 10px;
     position: relative;
     height: 220px;
-    border-radius: 16px;
+    border-radius: var(--r-md);
     border: 1px solid rgba(255, 255, 255, .10);
     background: rgba(0, 0, 0, .22);
     overflow: hidden;
+    isolation: isolate;
+}
+
+#spark {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
 }
 
 .spark-empty {
@@ -364,6 +537,43 @@
     display: grid;
     place-items: center;
     color: rgba(234, 240, 255, .68);
+    pointer-events: none;
+    text-align: center;
+    padding: 0 var(--s4);
+}
+
+.spark-cursor {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, .18);
+    opacity: 0;
+    pointer-events: none;
+}
+
+.spark-tip {
+    position: absolute;
+    left: var(--s4);
+    top: var(--s4);
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: rgba(10, 14, 30, .92);
+    border: 1px solid rgba(255, 255, 255, .14);
+    color: rgba(234, 240, 255, .90);
+    font-size: 12px;
+    line-height: 1.35;
+    box-shadow: 0 16px 50px rgba(0, 0, 0, .55);
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity .12s ease, transform .12s ease;
+    pointer-events: none;
+    max-width: min(260px, calc(100% - 32px));
+}
+
+.spark-tip.show {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .trend-list {
@@ -388,16 +598,17 @@
     font-size: 12px;
 }
 
-/* ===== news ===== */
+/* ===== News ===== */
+
 .news {
-    padding: 16px;
+    padding: var(--s4);
 }
 
 .news-head {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--s3);
     padding-bottom: 10px;
 }
 
@@ -443,8 +654,12 @@
 }
 
 .news-title {
+    display: -webkit-box;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
     text-decoration: none;
-    color: rgba(234, 240, 255, .90);
+    color: rgba(234, 240, 255, .92);
     line-height: 1.35;
     font-size: 13px;
 }
@@ -468,10 +683,11 @@
 }
 
 /* ===== About ===== */
+
 .about {
     max-width: var(--page-max);
     margin: 0 auto 40px;
-    padding: 0 16px;
+    padding: 0 var(--s4);
 }
 
 .about-inner {
@@ -493,29 +709,36 @@
     margin-top: 6px;
 }
 
-/* ===== 移动/中屏：折叠菜单（修复三杠“没作用”） ===== */
-@media (max-width:1200px) {
-    .nav-center {
-        display: none;
-        position: absolute;
-        top: 70px;
-        left: 16px;
-        right: 16px;
+/* ===== Mobile menu behavior ===== */
 
+@media (max-width: 1200px) {
+    .nav-center {
+        position: absolute;
+        top: 76px;
+        left: var(--s4);
+        right: var(--s4);
+        display: flex;
         flex-direction: column;
         align-items: stretch;
-
+        gap: 6px;
         border-radius: 18px;
         border: 1px solid rgba(255, 255, 255, .10);
-        background: rgba(10, 14, 30, .85);
+        background: rgba(10, 14, 30, .88);
         backdrop-filter: blur(12px);
         box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
         padding: 8px;
-        z-index: 220;
+
+        opacity: 0;
+        transform: translateY(-6px) scale(.98);
+        pointer-events: none;
+        transition: opacity .18s ease, transform .18s ease;
+        z-index: 230;
     }
 
     body.nav-open .nav-center {
-        display: flex;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        pointer-events: auto;
     }
 
     .nav-center a {
@@ -529,7 +752,20 @@
     }
 }
 
-/* modal header：让关闭按钮在右上角同一行 */
+/* ===== Modal ===== */
+
+.modal {
+    z-index: 10000;
+    isolation: isolate;
+    padding: var(--s5) var(--s4);
+}
+
+.modal-card {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .modal-head {
     position: sticky;
     top: 0;
@@ -540,7 +776,7 @@
     gap: 12px;
     padding: 14px 14px 10px;
     border-bottom: 1px solid rgba(255, 255, 255, .10);
-    background: rgba(10, 14, 30, .72);
+    background: rgba(10, 14, 30, .88);
     backdrop-filter: blur(10px);
 }
 
@@ -549,29 +785,29 @@
     font-weight: 800;
 }
 
-.modal-head #modal-close {
-    margin-left: auto;
+.modal-body {
+    overflow: auto;
+    max-height: min(72vh, 720px);
 }
 
-/* 1) 让弹窗永远在最上层 */
-.modal {
-    z-index: 9999;
-    isolation: isolate;
-    /* 可选：避免混合/叠加怪效果 */
-}
-
-.modal-backdrop {
-    z-index: 0;
-}
-
-.modal-card {
-    position: relative;
-    z-index: 1;
-}
-
-/* 2) 让“内容区”更不透明（不透出折线图） */
 .modal-card .json {
+    margin: 0;
+    padding: 14px 14px 18px;
     background: rgba(10, 14, 30, .94);
-    border-radius: 0 0 18px 18px;
-    /* 和 modal-card 圆角对齐 */
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+body.modal-open {
+    overflow: hidden;
+}
+
+/* 动效可访问性：减少 motion 时不做位移动画 */
+@media (prefers-reduced-motion: reduce) {
+
+    .nav-center,
+    .nav-overlay,
+    .spark-tip {
+        transition: none !important;
+    }
 }
