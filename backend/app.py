@@ -365,7 +365,7 @@ def serve_frontend(path: str):
     if path.startswith("api"):
         return jsonify({"error": "not_found"}), 404
     if path == "":
-        return send_from_directory(FRONTEND_DIR, "index.html")
+        return send_from_directory(FRONTEND_DIR, "init.html")
     if os.path.exists(os.path.join(FRONTEND_DIR, path)):
         return send_from_directory(FRONTEND_DIR, path)
     return send_from_directory(FRONTEND_DIR, "index.html")
