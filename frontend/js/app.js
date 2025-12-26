@@ -91,6 +91,7 @@
       "nav.query": "查询",
       "nav.list": "成交列表",
       "nav.trend": "价格趋势",
+      "nav.statistics": "房价统计",
       "nav.about": "关于",
 
       "btn.refresh": "刷新",
@@ -151,6 +152,7 @@
       "nav.query": "查詢",
       "nav.list": "成交列表",
       "nav.trend": "價格趨勢",
+      "nav.statistics": "房價統計",
       "nav.about": "關於",
 
       "btn.refresh": "重新整理",
