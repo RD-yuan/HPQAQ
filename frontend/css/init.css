@@ -1,3 +1,27 @@
+/* 背景 blob 位置（让 init 页更均衡） */
+.blob.b1 {
+    top: -180px;
+    left: -200px;
+    background: radial-gradient(circle at 30% 30%, rgba(121, 97, 255, .55), transparent 60%);
+}
+
+.blob.b2 {
+    bottom: -220px;
+    right: -240px;
+    background: radial-gradient(circle at 30% 30%, rgba(0, 213, 255, .45), transparent 62%);
+    opacity: .85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .init-logo-img,
+    .bar,
+    .scan,
+    .dot {
+        animation: none !important;
+    }
+}
+
 .init-logo-img {
     width: 88px;
     height: 88px;
@@ -240,43 +264,61 @@
     0%,
     100% {
         transform: scale(1);
-        opacity: .55;
+        opacity: .65;
     }
 
     50% {
-        transform: scale(1.35);
+        transform: scale(1.25);
         opacity: 1;
     }
 }
 
 .enter {
-    margin-top: 16px;
+    margin-top: 14px;
     width: 100%;
+    border-radius: 18px;
     padding: 12px 14px;
-    border-radius: 14px;
-    border: 1px solid rgba(0, 213, 255, .30);
-    color: rgba(234, 240, 255, .92);
-    background: linear-gradient(135deg, rgba(121, 97, 255, .25), rgba(0, 213, 255, .18));
+    font-weight: 800;
+    border: 1px solid rgba(0, 213, 255, .35);
+    background: rgba(0, 213, 255, .10);
+    color: rgba(234, 240, 255, .95);
     cursor: pointer;
     position: relative;
     overflow: hidden;
-    font-weight: 800;
-    letter-spacing: .4px;
-    transition: transform .12s ease, background .12s ease;
+    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
 }
 
 .enter:hover {
     transform: translateY(-1px);
-    background: linear-gradient(135deg, rgba(121, 97, 255, .30), rgba(0, 213, 255, .22));
+    box-shadow: 0 18px 50px rgba(0, 213, 255, .10);
+    background: rgba(0, 213, 255, .14);
 }
 
-.enter:active {
-    transform: translateY(0) scale(.99);
+.pulse {
+    position: absolute;
+    inset: -20px;
+    background: radial-gradient(circle at 50% 50%, rgba(0, 213, 255, .18), transparent 55%);
+    opacity: .75;
+    animation: pulseGlow 1.8s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes pulseGlow {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: .35;
+    }
+
+    50% {
+        transform: scale(1.08);
+        opacity: .75;
+    }
 }
 
 .foot {
     margin-top: 14px;
     font-size: 12px;
     color: rgba(234, 240, 255, .55);
-    text-align: center;
 }

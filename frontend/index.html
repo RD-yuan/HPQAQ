@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#070912" />
     <title>HPQAQ · 房价看板</title>
 
     <link rel="icon" href="/assets/logo.png" />
@@ -12,6 +14,8 @@
 </head>
 
 <body>
+    <a class="skip-link" href="#filters">跳到查询条件</a>
+
     <div class="bg" aria-hidden="true">
         <div class="blob b1"></div>
         <div class="blob b2"></div>
@@ -50,55 +54,91 @@
         </div>
     </header>
 
-    <main class="layout">
-        <section class="card filters" id="filters">
-            <div class="card-head">
-                <div>
-                    <div class="card-title" data-i18n="title.filters">查询条件</div>
-                    <div class="card-desc" data-i18n="desc.filters">选择城市后可按商圈/小区/户型精确筛选</div>
-                </div>
-                <div class="chip" id="chip" data-i18n="chip.connected">数据接口已连接</div>
-            </div>
+    <div class="nav-overlay" id="nav-overlay" aria-hidden="true"></div>
 
-            <div class="form">
-                <div class="field">
-                    <label data-i18n="label.city">城市</label>
-                    <select id="f-city"></select>
+    <main class="layout" id="main">
+        <div class="col-left" id="col-left">
+            <section class="card filters" id="filters">
+                <div class="card-head">
+                    <div>
+                        <div class="card-title" data-i18n="title.filters">查询条件</div>
+                        <div class="card-desc" data-i18n="desc.filters">选择城市后可按商圈/小区/户型精确筛选</div>
+                    </div>
+                    <div class="chip" id="chip" data-i18n="chip.connected">数据接口已连接</div>
                 </div>
 
-                <div class="field">
-                    <label data-i18n="label.region">区域</label>
-                    <input id="f-region" data-i18n-placeholder="ph.region" placeholder="（可选）例如：浦东 / 海淀"
-                        autocomplete="off" />
+                <div class="form" id="filters-form" role="search" aria-label="查询条件">
+                    <div class="field">
+                        <label for="f-city" data-i18n="label.city">城市</label>
+                        <select id="f-city"></select>
+                    </div>
+
+                    <div class="field">
+                        <label for="f-region" data-i18n="label.region">区域</label>
+                        <input id="f-region" data-i18n-placeholder="ph.region" placeholder="（可选）例如：浦东 / 海淀"
+                            autocomplete="off" />
+                    </div>
+
+                    <div class="field">
+                        <label for="f-bizcircle" data-i18n="label.bizcircle">商圈</label>
+                        <input id="f-bizcircle" data-i18n-placeholder="ph.bizcircle" placeholder="（可选）例如：北蔡 / 中关村"
+                            autocomplete="off" />
+                    </div>
+
+                    <div class="field">
+                        <label for="f-community" data-i18n="label.community">小区</label>
+                        <input id="f-community" data-i18n-placeholder="ph.community" placeholder="（可选）例如：由由四村"
+                            autocomplete="off" />
+                    </div>
+
+                    <div class="field">
+                        <label for="f-layout" data-i18n="label.layout">户型</label>
+                        <input id="f-layout" data-i18n-placeholder="ph.layout" placeholder="（可选）例如：2室1厅"
+                            autocomplete="off" />
+                    </div>
+
+                    <div class="field field-help" aria-hidden="true">
+                        <div class="help" id="help-tip">↵ Enter 快捷查询</div>
+                    </div>
                 </div>
 
-                <div class="field">
-                    <label data-i18n="label.bizcircle">商圈</label>
-                    <input id="f-bizcircle" data-i18n-placeholder="ph.bizcircle" placeholder="（可选）例如：北蔡 / 中关村"
-                        autocomplete="off" />
+                <div class="actions">
+                    <button class="btn primary" id="btn-search" type="button">
+                        <span class="glow"></span><span data-i18n="btn.search">查询</span>
+                    </button>
+                    <button class="btn" id="btn-reset" type="button" data-i18n="btn.reset">重置</button>
+                    <div class="meta" id="meta" data-i18n="meta.ready">准备就绪</div>
+                </div>
+            </section>
+
+            <aside class="card trend" id="trend">
+                <div class="card-title" data-i18n="title.trend">价格趋势</div>
+                <div class="card-desc" data-i18n="desc.trend">按月聚合成交日期：均价（元/㎡）与样本数</div>
+
+                <div class="spark-wrap" id="spark-wrap">
+                    <div class="spark-empty" id="spark-empty" data-i18n="empty.trend">暂无趋势数据</div>
+                    <svg id="spark" viewBox="0 0 600 220" preserveAspectRatio="none" aria-label="价格趋势折线图"></svg>
+                    <div class="spark-cursor" id="spark-cursor" aria-hidden="true"></div>
+                    <div class="spark-tip" id="spark-tip" role="status" aria-live="polite"></div>
                 </div>
 
-                <div class="field">
-                    <label data-i18n="label.community">小区</label>
-                    <input id="f-community" data-i18n-placeholder="ph.community" placeholder="（可选）例如：由由四村"
-                        autocomplete="off" />
+                <ul class="trend-list" id="trend-list" aria-label="近几月趋势摘要"></ul>
+            </aside>
+
+            <section class="card news" id="news">
+                <div class="news-head">
+                    <div>
+                        <div class="card-title" data-i18n="title.news">房天下热榜</div>
+                        <div class="card-desc" data-i18n="desc.news">自动抓取房天下「房产热榜」，点击标题跳转原文</div>
+                    </div>
+                    <button class="btn" id="btn-news-refresh" type="button" data-i18n="btn.news_refresh">更新</button>
                 </div>
 
-                <div class="field">
-                    <label data-i18n="label.layout">户型</label>
-                    <input id="f-layout" data-i18n-placeholder="ph.layout" placeholder="（可选）例如：2室1厅"
-                        autocomplete="off" />
-                </div>
-            </div>
-
-            <div class="actions">
-                <button class="btn primary" id="btn-search" type="button">
-                    <span class="glow"></span><span data-i18n="btn.search">查询</span>
-                </button>
-                <button class="btn" id="btn-reset" type="button" data-i18n="btn.reset">重置</button>
-                <div class="meta" id="meta" data-i18n="meta.ready">准备就绪</div>
-            </div>
-        </section>
+                <div class="news-meta" id="news-meta"></div>
+                <ul class="news-list" id="news-list" aria-label="新闻热榜列表"></ul>
+                <div class="news-empty" id="news-empty" data-i18n="empty.news">暂无热榜新闻</div>
+            </section>
+        </div>
 
         <section class="card results" id="results">
             <div class="results-head">
@@ -107,11 +147,12 @@
                     <div class="card-desc" data-i18n="desc.list">点击任意行查看中文详情；“↗”打开详情链接</div>
                 </div>
 
-                <div class="pager">
-                    <button class="btn icon" id="btn-prev" type="button" title="上一页">‹</button>
+                <div class="pager" aria-label="分页">
+                    <button class="btn icon" id="btn-prev" type="button" title="上一页" aria-label="上一页">‹</button>
                     <span class="pager-text" id="pager-text">第 1 / 1 页</span>
-                    <button class="btn icon" id="btn-next" type="button" title="下一页">›</button>
+                    <button class="btn icon" id="btn-next" type="button" title="下一页" aria-label="下一页">›</button>
 
+                    <label class="visually-hidden" for="page-size">每页条数</label>
                     <select id="page-size" class="select" title="每页条数">
                         <option value="10">10/页</option>
                         <option value="20" selected>20/页</option>
@@ -121,36 +162,27 @@
                 </div>
             </div>
 
-            <div class="table-wrap">
-                <table class="table">
+            <div class="list-state" id="list-state" role="status" aria-live="polite"></div>
+
+            <div class="table-wrap" id="table-wrap">
+                <table class="table" aria-describedby="list-state">
+                    <caption class="visually-hidden">成交记录列表</caption>
                     <thead>
                         <tr>
-                            <th data-i18n="th.bizcircle">商圈</th>
-                            <th data-i18n="th.community">小区</th>
-                            <th data-i18n="th.layout">户型</th>
-                            <th class="num" data-i18n="th.area">面积(㎡)</th>
-                            <th class="num" data-i18n="th.unit">单价(元/㎡)</th>
-                            <th class="num" data-i18n="th.total">总价(万)</th>
-                            <th data-i18n="th.dealdate">成交日期</th>
-                            <th data-i18n="th.detail">详情</th>
+                            <th scope="col" data-i18n="th.bizcircle">商圈</th>
+                            <th scope="col" data-i18n="th.community">小区</th>
+                            <th scope="col" data-i18n="th.layout">户型</th>
+                            <th scope="col" class="num" data-i18n="th.area">面积(㎡)</th>
+                            <th scope="col" class="num" data-i18n="th.unit">单价(元/㎡)</th>
+                            <th scope="col" class="num" data-i18n="th.total">总价(万)</th>
+                            <th scope="col" data-i18n="th.dealdate">成交日期</th>
+                            <th scope="col" data-i18n="th.detail">详情</th>
                         </tr>
                     </thead>
                     <tbody id="tbody"></tbody>
                 </table>
             </div>
         </section>
-
-        <aside class="card trend" id="trend">
-            <div class="card-title" data-i18n="title.trend">价格趋势</div>
-            <div class="card-desc" data-i18n="desc.trend">按月聚合成交日期：均价（元/㎡）与样本数</div>
-
-            <div class="spark-wrap">
-                <div class="spark-empty" id="spark-empty" data-i18n="empty.trend">暂无趋势数据</div>
-                <svg id="spark" viewBox="0 0 600 220" preserveAspectRatio="none"></svg>
-            </div>
-
-            <ul class="trend-list" id="trend-list"></ul>
-        </aside>
     </main>
 
     <footer id="about" class="about">
@@ -160,16 +192,19 @@
         </div>
     </footer>
 
-    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
     <div class="modal hidden" id="modal" aria-hidden="true">
         <div class="modal-backdrop" id="modal-backdrop"></div>
-        <div class="modal-card" role="dialog" aria-modal="true" aria-label="记录详情">
+        <div class="modal-card" id="modal-card" role="dialog" aria-modal="true" aria-labelledby="modal-title"
+            aria-describedby="modal-json" tabindex="-1">
             <div class="modal-head">
-                <div class="modal-title" data-i18n="modal.title">记录详情</div>
-                <button class="btn icon" id="modal-close" type="button" title="关闭">✕</button>
+                <div class="modal-title" id="modal-title" data-i18n="modal.title">记录详情</div>
+                <button class="btn icon" id="modal-close" type="button" title="关闭" aria-label="关闭">✕</button>
             </div>
-            <pre class="json" id="modal-json"></pre>
+            <div class="modal-body">
+                <pre class="json" id="modal-json"></pre>
+            </div>
         </div>
     </div>
 
