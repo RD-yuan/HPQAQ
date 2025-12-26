@@ -1,0 +1,490 @@
+/* ===== HPQAQ index 页面样式（导航 + 三列布局） ===== */
+:root {
+    --page-max: 1320px;
+}
+
+/* ===== 顶部导航 ===== */
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+
+    /* 让 header 左右边距和主内容一致，从而“整体居中” */
+    padding: 14px 16px;
+    padding-left: max(16px, calc((100vw - var(--page-max)) / 2 + 16px));
+    padding-right: max(16px, calc((100vw - var(--page-max)) / 2 + 16px));
+
+    backdrop-filter: blur(14px);
+    background: linear-gradient(180deg, rgba(6, 8, 16, .78), rgba(6, 8, 16, .38));
+    border-bottom: 1px solid rgba(255, 255, 255, .08);
+
+    overflow: visible;
+    /* 允许移动端下拉菜单显示 */
+}
+
+.nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text);
+}
+
+.nav-logo {
+    width: 80px;
+    height: 52px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .05);
+    overflow: hidden;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, .35);
+}
+
+.nav-logo-img {
+    width: 60px;
+    height: 44px;
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 12px 22px rgba(0, 0, 0, .35));
+}
+
+.nav-name {
+    font-weight: 900;
+    letter-spacing: .6px;
+}
+
+/* 中间导航（桌面端） */
+.nav-center {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .10);
+    background: rgba(255, 255, 255, .04);
+}
+
+.nav-center a {
+    position: relative;
+    text-decoration: none;
+    color: rgba(234, 240, 255, .82);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 999px;
+    transition: background .12s ease, transform .12s ease, color .12s ease;
+}
+
+.nav-center a:hover {
+    background: rgba(255, 255, 255, .06);
+    transform: translateY(-1px);
+    color: rgba(234, 240, 255, .96);
+}
+
+/* 下划线扫光 */
+.nav-center a::after {
+    content: "";
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 4px;
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(121, 97, 255, 0), rgba(0, 213, 255, .9), rgba(255, 72, 180, 0));
+    opacity: 0;
+    transform: translateX(-20%);
+}
+
+.nav-center a:hover::after {
+    opacity: .85;
+    animation: underlineSweep .6s ease forwards;
+}
+
+@keyframes underlineSweep {
+    0% {
+        transform: translateX(-28%);
+    }
+
+    100% {
+        transform: translateX(28%);
+    }
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.badge {
+    font-size: 12px;
+    padding: 8px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .06);
+}
+
+.nav-select {
+    padding: 10px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(0, 0, 0, .25);
+    color: var(--text);
+}
+
+.nav-btn {
+    padding: 10px 12px;
+}
+
+.nav-burger {
+    display: none;
+    /* 默认桌面端不显示 */
+}
+
+/* ===== 主布局：解决“查询条件下方大空白”的关键 ===== */
+.layout {
+    max-width: var(--page-max);
+    margin: 18px auto 42px;
+    padding: 0 16px;
+
+    display: grid;
+    grid-template-columns: 1fr 420px;
+    grid-template-areas:
+        "filters results"
+        "trend   results";
+    /* 右侧列表跨两行 */
+    gap: 16px;
+
+    align-items: start;
+    /* 防止左侧卡片被右侧高度撑到很高 */
+}
+
+/* 关键：允许 grid item 缩小，否则表格 min-content 会把整列撑开导致“偏左/溢出” */
+.filters,
+.results,
+.trend {
+    min-width: 0;
+}
+
+.table-wrap {
+    min-width: 0;
+}
+
+.filters {
+    grid-area: filters;
+    align-self: start;
+}
+
+.results {
+    grid-area: results;
+    align-self: start;
+}
+
+.trend {
+    grid-area: trend;
+    align-self: start;
+}
+
+@media (max-width:1100px) {
+    .layout {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "filters"
+            "results"
+            "trend";
+    }
+}
+
+/* ===== filters ===== */
+.filters .card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 16px 10px;
+}
+
+.chip {
+    padding: 8px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid rgba(255, 255, 255, .12);
+    background: rgba(255, 255, 255, .06);
+    white-space: nowrap;
+}
+
+.form {
+    padding: 0 16px 6px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+@media (max-width:720px) {
+    .form {
+        grid-template-columns: 1fr;
+    }
+}
+
+.field label {
+    display: block;
+    font-size: 12px;
+    color: rgba(234, 240, 255, .68);
+    margin-bottom: 6px;
+}
+
+.field input,
+.field select {
+    width: 100%;
+    padding: 10px 10px;
+    border-radius: 12px;
+    transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+
+.field input:focus,
+.field select:focus {
+    border-color: rgba(0, 213, 255, .55);
+    box-shadow: 0 0 0 3px rgba(0, 213, 255, .16);
+    transform: translateY(-1px);
+}
+
+.actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px 14px;
+}
+
+.meta {
+    margin-left: auto;
+    font-size: 12px;
+    color: rgba(234, 240, 255, .68);
+}
+
+/* ===== results ===== */
+.results-head {
+    padding: 16px 16px 10px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.pager-text {
+    font-size: 12px;
+    color: rgba(234, 240, 255, .68);
+    min-width: 90px;
+    text-align: center;
+}
+
+.table-wrap {
+    padding: 0 10px 10px;
+    overflow: auto;
+    max-height: min(72vh, 640px);
+}
+
+.table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 13px;
+}
+
+.table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: rgba(10, 14, 30, .72);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid rgba(255, 255, 255, .10);
+    text-align: left;
+    padding: 10px 10px;
+    white-space: nowrap;
+}
+
+.table td {
+    padding: 10px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
+    white-space: nowrap;
+}
+
+.table .num {
+    text-align: right;
+}
+
+.table tbody tr {
+    cursor: pointer;
+    transition: background .12s ease, transform .12s ease;
+}
+
+.table tbody tr:hover {
+    background: rgba(255, 255, 255, .06);
+    transform: translateY(-1px);
+}
+
+/* ===== trend ===== */
+.trend {
+    padding: 16px;
+}
+
+.spark-wrap {
+    margin-top: 10px;
+    position: relative;
+    height: 220px;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, .10);
+    background: rgba(0, 0, 0, .22);
+    overflow: hidden;
+}
+
+.spark-empty {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: rgba(234, 240, 255, .68);
+}
+
+.trend-list {
+    list-style: none;
+    padding: 10px 0 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 240px;
+    overflow: auto;
+}
+
+.trend-list li {
+    padding: 10px 10px;
+    border: 1px solid rgba(255, 255, 255, .10);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .05);
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 12px;
+}
+
+/* ===== About ===== */
+.about {
+    max-width: var(--page-max);
+    margin: 0 auto 40px;
+    padding: 0 16px;
+}
+
+.about-inner {
+    margin-top: 10px;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, .10);
+    background: rgba(255, 255, 255, .04);
+    padding: 14px 14px;
+}
+
+.about-title {
+    font-weight: 900;
+    font-size: 13px;
+}
+
+.about-text {
+    color: rgba(234, 240, 255, .68);
+    font-size: 12px;
+    margin-top: 6px;
+}
+
+/* ===== 移动/中屏：折叠菜单（修复三杠“没作用”） ===== */
+@media (max-width:1200px) {
+    .nav-center {
+        display: none;
+        position: absolute;
+        top: 70px;
+        left: 16px;
+        right: 16px;
+
+        flex-direction: column;
+        align-items: stretch;
+
+        border-radius: 18px;
+        border: 1px solid rgba(255, 255, 255, .10);
+        background: rgba(10, 14, 30, .85);
+        backdrop-filter: blur(12px);
+        box-shadow: 0 18px 60px rgba(0, 0, 0, .45);
+        padding: 8px;
+        z-index: 220;
+    }
+
+    body.nav-open .nav-center {
+        display: flex;
+    }
+
+    .nav-center a {
+        text-align: center;
+        border-radius: 14px;
+    }
+
+    .nav-burger {
+        display: grid;
+        place-items: center;
+    }
+}
+
+/* modal header：让关闭按钮在右上角同一行 */
+.modal-head {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, .10);
+    background: rgba(10, 14, 30, .72);
+    backdrop-filter: blur(10px);
+}
+
+.modal-title {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.modal-head #modal-close {
+    margin-left: auto;
+}
+
+/* 1) 让弹窗永远在最上层 */
+.modal {
+    z-index: 9999;
+    isolation: isolate;
+    /* 可选：避免混合/叠加怪效果 */
+}
+
+.modal-backdrop {
+    z-index: 0;
+}
+
+.modal-card {
+    position: relative;
+    z-index: 1;
+}
+
+/* 2) 让“内容区”更不透明（不透出折线图） */
+.modal-card .json {
+    background: rgba(10, 14, 30, .94);
+    border-radius: 0 0 18px 18px;
+    /* 和 modal-card 圆角对齐 */
+}
