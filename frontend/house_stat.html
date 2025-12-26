@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HPQAQ · 房价统计</title>
+
+    <link rel="icon" href="/assets/logo.png" />
+    <link rel="stylesheet" href="/css/base.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+
+<body>
+    <div class="bg" aria-hidden="true">
+        <div class="blob b1"></div>
+        <div class="blob b2"></div>
+        <div class="blob b3"></div>
+        <div class="grid"></div>
+        <div class="noise"></div>
+    </div>
+
+    <header class="navbar" id="navbar">
+        <a class="nav-brand" href="/" aria-label="HPQAQ">
+            <span class="nav-logo">
+                <img class="nav-logo-img" src="/assets/logo.png" alt="HPQAQ Logo" />
+            </span>
+            <span class="nav-name">HPQAQ</span>
+        </a>
+
+        <nav class="nav-center" id="nav-center">
+            <a href="/index.html#filters" data-i18n="nav.query">查询</a>
+            <a href="/index.html#results" data-i18n="nav.list">成交列表</a>
+            <a href="/index.html#trend" data-i18n="nav.trend">价格趋势</a>
+            <a href="/house_stat.html" data-i18n="nav.statistics">房价统计</a>
+            <a href="/index.html#about" data-i18n="nav.about">关于</a>
+        </nav>
+
+        <div class="nav-right">
+            <span class="badge" id="badge-api">API：检测中…</span>
+            <span class="badge" id="badge-cities">城市：—</span>
+
+            <select id="nav-city" class="nav-select" title="城市"></select>
+
+            <button class="btn primary nav-btn" id="nav-refresh" type="button">
+                <span class="glow"></span><span data-i18n="btn.refresh">刷新</span>
+            </button>
+
+            <button class="btn icon nav-burger" id="nav-burger" type="button" aria-label="菜单">☰</button>
+        </div>
+    </header>
+
+    <main style="max-width: 1400px; margin: 0 auto; padding: 2rem 1rem;">
+        <section class="card filters" id="stat-filters" style="width: 100%; margin-bottom: 2rem;">
+            <div class="card-head">
+                <div>
+                    <div class="card-title">查询条件</div>
+                    <div class="card-desc" id="filter-desc">选择城市和年份范围，可选择特定商圈进行统计</div>
+                </div>
+                <div class="chip" id="chip">数据接口已连接</div>
+            </div>
+
+            <!-- 模式切换 -->
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <button class="btn primary" id="btn-mode-single" type="button">📍 单地区查询</button>
+                <button class="btn" id="btn-mode-compare" type="button">📊 多地区对比</button>
+            </div>
+
+            <!-- 单地区模式 -->
+            <div class="form" id="form-single">
+                <div class="field">
+                    <label>城市</label>
+                    <select id="stat-city"></select>
+                </div>
+
+                <div class="field">
+                    <label>商圈（可选）</label>
+                    <select id="stat-bizcircle">
+                        <option value="">全市整体</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>起始年份</label>
+                    <select id="stat-start-year">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>起始月份</label>
+                    <select id="stat-start-month">
+                        <option value="01" selected>1月</option>
+                        <option value="02">2月</option>
+                        <option value="03">3月</option>
+                        <option value="04">4月</option>
+                        <option value="05">5月</option>
+                        <option value="06">6月</option>
+                        <option value="07">7月</option>
+                        <option value="08">8月</option>
+                        <option value="09">9月</option>
+                        <option value="10">10月</option>
+                        <option value="11">11月</option>
+                        <option value="12">12月</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>结束年份</label>
+                    <select id="stat-end-year">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025" selected>2025</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>结束月份</label>
+                    <select id="stat-end-month">
+                        <option value="01">1月</option>
+                        <option value="02">2月</option>
+                        <option value="03">3月</option>
+                        <option value="04">4月</option>
+                        <option value="05">5月</option>
+                        <option value="06">6月</option>
+                        <option value="07">7月</option>
+                        <option value="08">8月</option>
+                        <option value="09">9月</option>
+                        <option value="10">10月</option>
+                        <option value="11">11月</option>
+                        <option value="12" selected>12月</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 对比模式 -->
+            <div class="form" id="form-compare" style="display: none;">
+                <div class="field">
+                    <label>对比类型</label>
+                    <select id="compare-type">
+                        <option value="cities">多城市对比</option>
+                        <option value="bizcircles">同城市多商圈对比</option>
+                    </select>
+                </div>
+
+                <div id="compare-cities-section">
+                    <div class="field">
+                        <label>选择城市（至少选择 2 个）</label>
+                        <div id="compare-cities-checkboxes" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; padding: 0.75rem; background: rgba(255,255,255,0.03); border-radius: 8px; max-height: 200px; overflow-y: auto;">
+                            <!-- 城市复选框将动态插入这里 -->
+                        </div>
+                    </div>
+                </div>
+
+                <div id="compare-bizcircles-section" style="display: none;">
+                    <div class="field">
+                        <label>城市</label>
+                        <select id="compare-city-base"></select>
+                    </div>
+                    <div class="field">
+                        <label>选择商圈（至少选择 2 个）</label>
+                        <div id="compare-bizcircles-checkboxes" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.5rem; padding: 0.75rem; background: rgba(255,255,255,0.03); border-radius: 8px; max-height: 250px; overflow-y: auto;">
+                            <!-- 商圈复选框将动态插入这里 -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>起始年份</label>
+                    <select id="compare-start-year">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>起始月份</label>
+                    <select id="compare-start-month">
+                        <option value="01" selected>1月</option>
+                        <option value="02">2月</option>
+                        <option value="03">3月</option>
+                        <option value="04">4月</option>
+                        <option value="05">5月</option>
+                        <option value="06">6月</option>
+                        <option value="07">7月</option>
+                        <option value="08">8月</option>
+                        <option value="09">9月</option>
+                        <option value="10">10月</option>
+                        <option value="11">11月</option>
+                        <option value="12">12月</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>结束年份</label>
+                    <select id="compare-end-year">
+                        <option value="2023">2023</option>
+                        <option value="2024">2024</option>
+                        <option value="2025" selected>2025</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>结束月份</label>
+                    <select id="compare-end-month">
+                        <option value="01">1月</option>
+                        <option value="02">2月</option>
+                        <option value="03">3月</option>
+                        <option value="04">4月</option>
+                        <option value="05">5月</option>
+                        <option value="06">6月</option>
+                        <option value="07">7月</option>
+                        <option value="08">8月</option>
+                        <option value="09">9月</option>
+                        <option value="10">10月</option>
+                        <option value="11">11月</option>
+                        <option value="12" selected>12月</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn primary" id="btn-stat-query" type="button">
+                    <span class="glow"></span><span id="btn-query-text">查询历史均价</span>
+                </button>
+                <button class="btn" id="btn-stat-reset" type="button">重置</button>
+                <div class="meta" id="stat-meta">请选择城市后查询</div>
+            </div>
+        </section>
+
+        <section class="card results" id="stat-results" style="width: 100%;">
+            <div class="card-head">
+                <div>
+                    <div class="card-title">历史均价统计</div>
+                    <div class="card-desc" id="stat-result-desc">按年度统计 2023-2025 历史均价数据</div>
+                </div>
+            </div>
+
+            <div class="stat-empty" id="stat-empty" style="display: grid; place-items: center; min-height: 200px; color: rgba(234,240,255,.45);">
+                <div style="text-align: center;">
+                    <p style="font-size: 1.1rem; margin-bottom: 0.5rem;">📊</p>
+                    <p>请选择城市后点击"查询历史均价"</p>
+                </div>
+            </div>
+
+            <div id="stat-content" style="display: none;">
+                <!-- 图表切换按钮 -->
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                    <button class="btn" id="btn-view-bar" type="button">📊 柱状图</button>
+                    <button class="btn" id="btn-view-line" type="button">📈 折线图</button>
+                    <button class="btn" id="btn-view-box" type="button">📉 面积图</button>
+                    <button class="btn" id="btn-view-table" type="button">📋 数据表</button>
+                </div>
+
+                <!-- 图表容器 -->
+                <div id="chart-container" style="position: relative; height: 500px; margin-bottom: 2rem; width: 100%;">
+                    <canvas id="stat-chart"></canvas>
+                </div>
+
+                <!-- 数据表格 -->
+                <div class="table-wrap" id="stat-table-wrap" style="display: none;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>年月</th>
+                                <th class="num">平均单价 (元/㎡)</th>
+                                <th class="num">平均总价 (万元)</th>
+                                <th class="num">样本数量</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stat-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer id="about" class="about">
+        <div class="about-inner">
+            <div class="about-title">HPQAQ</div>
+            <div class="about-text" data-i18n="about.text">房产成交数据查询与趋势分析 · 数据读取自 data/ 目录 JSON</div>
+        </div>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <script src="/js/house_stat.js"></script>
+</body>
+
+</html>
