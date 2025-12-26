@@ -10,6 +10,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import func, text
 from sqlalchemy.exc import SQLAlchemyError
+import statistics
 
 try:
     import requests
@@ -507,60 +508,116 @@ def get_price_trend():
 
     return jsonify({"points": points})
 
-
-@app.get("/api/fang_news")
-def get_fang_news():
-    """房天下“房产热榜”新闻列表（点击后跳转房天下原文）。"""
-    city_code = (request.args.get("city") or "").strip().lower() or "beijing"
-    limit = request.args.get("limit", 10, type=int)
-    limit = max(1, min(int(limit or 10), 20))
-
-    source_url = _fang_news_index_url(city_code)
-    cache_key = f"{city_code}|{limit}|{source_url}"
-    now = time.time()
-
-    hit = _FANG_NEWS_CACHE.get(cache_key)
-    if hit and (now - hit.get("ts", 0) < _FANG_NEWS_TTL_SECONDS):
+@app.get("/api/historical_avg_price")
+def get_historical_avg_price():
+    """
+    获取历史均价统计（按年度或月度）
+    查询参数：
+    - city: 城市代码（必填）
+    - bizcircle: 商圈名称（可选）
+    - start_year: 起始年份（默认 2023）- 兼容旧版
+    - end_year: 结束年份（默认 2025）- 兼容旧版
+    - start_month: 起始月份（格式：YYYY-MM）- 新版
+    - end_month: 结束月份（格式：YYYY-MM）- 新版
+    """
+    city_code = request.args.get("city", "").strip().lower()
+    if not city_code:
+        return jsonify({"error": "missing_city"}), 400
+    
+    bizcircle = request.args.get("bizcircle", "").strip() or None
+    
+    # 优先使用月份参数，如果没有则使用年份参数（兼容旧版）
+    start_month = request.args.get("start_month", "").strip()
+    end_month = request.args.get("end_month", "").strip()
+    
+    if start_month and end_month:
+        # 使用月份参数
+        if start_month > end_month:
+            return jsonify({"error": "invalid_month_range"}), 400
+        start_year = int(start_month.split("-")[0])
+        end_year = int(end_month.split("-")[0])
+    else:
+        # 使用年份参数（兼容旧版）
+        start_year = request.args.get("start_year", 2023, type=int)
+        end_year = request.args.get("end_year", 2025, type=int)
+        start_month = f"{start_year}-01"
+        end_month = f"{end_year}-12"
+        
+        if start_year > end_year:
+            return jsonify({"error": "invalid_year_range"}), 400
+    
+    # --- 1) DB 可用：从数据库统计 ---
+    if db_is_available():
+        result = statistics.get_historical_avg_price_from_db(
+            db.session,
+            Transaction,
+            city_code,
+            bizcircle,
+            start_month,
+            end_month
+        )
         return jsonify({
             "ok": True,
+            "source": "mysql",
             "city": city_code,
-            "source_url": hit.get("source_url", source_url),
-            "fetched_at": hit.get("fetched_at"),
-            "cached": True,
-            "items": hit.get("items", []),
+            "bizcircle": bizcircle,
+            "data": result
         })
-
-    fetched_at = datetime.utcnow().isoformat() + "Z"
-    try:
-        html_text = _http_get_text(source_url)
-        items = _parse_fang_hot_list(html_text, source_url, limit=limit)
-    except Exception as e:
-        return jsonify({
-            "ok": False,
-            "city": city_code,
-            "source_url": source_url,
-            "fetched_at": fetched_at,
-            "cached": False,
-            "items": [],
-            "error": str(e),
-        }), 502
-
-    payload = {
+    
+    # --- 2) DB 不可用：从 JSON 统计 ---
+    result = statistics.get_historical_avg_price_from_json(
+        DATA_DIR,
+        CITY_JSON_MAP,
+        city_code,
+        bizcircle,
+        start_month,
+        end_month
+    )
+    return jsonify({
         "ok": True,
+        "source": "json",
         "city": city_code,
-        "source_url": source_url,
-        "fetched_at": fetched_at,
-        "cached": False,
-        "items": items,
-    }
+        "bizcircle": bizcircle,
+        "data": result
+    })
 
-    _FANG_NEWS_CACHE[cache_key] = {
-        "ts": now,
-        "source_url": source_url,
-        "fetched_at": fetched_at,
-        "items": items,
-    }
-    return jsonify(payload)
+@app.get("/api/bizcircles")
+def get_bizcircles():
+    """
+    获取指定城市的所有商圈列表
+    查询参数：
+    - city: 城市代码（必填）
+    """
+    city_code = request.args.get("city", "").strip().lower()
+    if not city_code:
+        return jsonify({"error": "missing_city"}), 400
+    
+    # --- 1) DB 可用：从数据库获取 ---
+    if db_is_available():
+        bizcircles = statistics.get_available_bizcircles_from_db(
+            db.session,
+            Transaction,
+            city_code
+        )
+        return jsonify({
+            "ok": True,
+            "source": "mysql",
+            "city": city_code,
+            "bizcircles": bizcircles
+        })
+    
+    # --- 2) DB 不可用：从 JSON 获取 ---
+    bizcircles = statistics.get_available_bizcircles_from_json(
+        DATA_DIR,
+        CITY_JSON_MAP,
+        city_code
+    )
+    return jsonify({
+        "ok": True,
+        "source": "json",
+        "city": city_code,
+        "bizcircles": bizcircles
+    })
 
 # === 静态文件托管 ===
 @app.route("/", defaults={"path": ""})
